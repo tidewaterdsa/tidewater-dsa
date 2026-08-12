@@ -1,4 +1,4 @@
-# Blog
+# Website
 
 The public-facing website for Tidewater DSA, the Hampton Roads chapter of the Democratic Socialists of America. Built with Astro and server-rendered on Cloudflare Workers, with content managed through an embedded Sanity Studio at `/admin`.
 
@@ -18,7 +18,7 @@ The public-facing website for Tidewater DSA, the Hampton Roads chapter of the De
 ## Structure
 
 ```
-apps/blog/
+apps/website/
 ├── sanity/
 │   ├── schemas/           # Document and object type definitions
 │   ├── queries/           # Shared GROQ queries
@@ -40,11 +40,11 @@ apps/blog/
 ```
 ## Typography
 
-The site's display typeface is **Manifold DSA**, the official DSA brand font. Seven weights (Light through Heavy, 300–900) are bundled as WOFF2 in `apps/blog/public/fonts/` and declared in `src/styles/app.css`. The `--font-heading` token in `packages/ui/src/styles/globals.css` resolves to `"Manifold DSA"` with an Inter Variable fallback, so any app that imports the shared globals gets the brand heading font automatically, provided that app also serves the font files at `/fonts/`.
+The site's display typeface is **Manifold DSA**, the official DSA brand font. Seven weights (Light through Heavy, 300–900) are bundled as WOFF2 in `apps/website/public/fonts/` and declared in `src/styles/app.css`. The `--font-heading` token in `packages/ui/src/styles/globals.css` resolves to `"Manifold DSA"` with an Inter Variable fallback, so any app that imports the shared globals gets the brand heading font automatically, provided that app also serves the font files at `/fonts/`.
 
 Body copy uses Inter Variable (loaded via `@fontsource-variable/inter`, declared in the shared UI package). The mono token resolves to JetBrains Mono with system fallbacks.
 
-If you add a new app to the monorepo and want the same heading look, copy the `apps/blog/public/fonts/` directory into the new app's public folder and re-declare the seven `@font-face` blocks. The Tailwind tokens are shared automatically.
+If you add a new app to the monorepo and want the same heading look, copy the `apps/website/public/fonts/` directory into the new app's public folder and re-declare the seven `@font-face` blocks. The Tailwind tokens are shared automatically.
 
 ## Environmental Setup
 
@@ -88,7 +88,7 @@ Make sure **Allow credentials** is checked for each origin.
 From the repo root:
 
 ```bash
-npm run dev --workspace=blog
+npm run dev --workspace=website
 ```
 
 Or run everything in the monorepo with `npm run dev` from the root.
@@ -333,7 +333,7 @@ Geocode results in production are cached in a Cloudflare KV namespace bound to t
 2. Go to **Workers & Pages → KV** in the sidebar
 3. Click **Create a namespace**, name it `tidewater-dsa-geocode-cache` (or whatever, the name is just a label, the binding name is what the code references)
 4. Copy the namespace ID Cloudflare assigns. Also create a separate "preview" namespace if you want isolated `wrangler dev` testing, its ID goes in the `preview_id` field
-5. Open `apps/blog/wrangler.jsonc` and update both IDs:
+5. Open `apps/website/wrangler.jsonc` and update both IDs:
 
    ```jsonc
    "kv_namespaces": [

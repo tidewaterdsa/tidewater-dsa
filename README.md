@@ -9,12 +9,12 @@ This repo is set up to grow. New chapter tools, internal dashboards, campaign mi
 ```
 tidewater-dsa/
 ├── apps/
-│   └── blog/   # Public-facing chapter website — see apps/blog/README.md
+│   └── website/   # Public-facing chapter website — see apps/website/README.md
 └── packages/
-    └── ui/     # Shared shadcn/ui components — see packages/ui/README.md
+    └── ui/        # Shared shadcn/ui components — see packages/ui/README.md
 ```
 
-Apps are free to use whatever framework makes sense for the job. The current `blog` app is built with Astro, but future apps aren't locked into that choice — an admin dashboard could be Next.js, an API service could be a plain Node worker, and so on. The shared `packages/ui` library is framework-agnostic React, so any app that renders React (which includes Astro via islands) can use it.
+Apps are free to use whatever framework makes sense for the job. The current `website` app is built with Astro, but future apps aren't locked into that choice — an admin dashboard could be Next.js, an API service could be a plain Node worker, and so on. The shared `packages/ui` library is framework-agnostic React, so any app that renders React (which includes Astro via islands) can use it.
 
 ## Prerequisites
 
@@ -63,13 +63,13 @@ The `<type>` prefix is required and tells reviewers (and our future tooling — 
 | `build`    | Changes to the build system or external dependencies.                           |
 | `ci`       | Changes to CI configuration or scripts.                                         |
 
-The scope in parentheses is optional and usually names the app or package the change affects (e.g. `blog`, `ui`). Use it when the touched area isn't obvious from the subject.
+The scope in parentheses is optional and usually names the app or package the change affects (e.g. `website`, `ui`). Use it when the touched area isn't obvious from the subject.
 
 Examples:
 
 ```
 feat: add events calendar filter
-fix(blog): correct timezone on event card
+fix(website): correct timezone on event card
 chore: bump turbo to 2.8.17
 docs: document commit message conventions
 refactor(ui): extract shared button variants
@@ -110,7 +110,7 @@ npm run typegen      # Regenerate Sanity types (runs in every package that defin
 To run a command for a single package, use the npm workspace flag:
 
 ```bash
-npm run dev --workspace=blog
+npm run dev --workspace=website
 ```
 
 ## Adding apps and packages

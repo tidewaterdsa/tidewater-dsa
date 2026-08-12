@@ -30,7 +30,7 @@ if ! printf '%s' "$commit_msg" | grep -Eq "$pattern"; then
   printf '\n'
   printf 'Examples:\n'
   printf '  feat: add events calendar filter\n'
-  printf '  fix(blog): correct timezone on event card\n'
+  printf '  fix(website): correct timezone on event card\n'
   printf '  chore: bump turbo to 2.8.17\n'
   printf '\n'
   exit 1

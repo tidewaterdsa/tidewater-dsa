@@ -4,14 +4,14 @@
 echo "Running Sanity type generator..."
 CI=true npm run typegen
 
-if ! git --no-pager diff --exit-code apps/blog/sanity/types.ts > /dev/null; then
+if ! git --no-pager diff --exit-code apps/website/sanity/types.ts > /dev/null; then
   RED='\033[0;31m'
   NC='\033[0m'
 
   echo -e ""
   echo -e "${RED}ERROR: Sanity types are out of sync with your schemas.${NC}"
-  echo -e "${RED}The type generator just updated apps/blog/sanity/types.ts.${NC}"
-  echo -e "${RED}Please stage this file (git add apps/blog/sanity/types.ts) and commit again.${NC}"
+  echo -e "${RED}The type generator just updated apps/website/sanity/types.ts.${NC}"
+  echo -e "${RED}Please stage this file (git add apps/website/sanity/types.ts) and commit again.${NC}"
   echo -e ""
   exit 1
 fi

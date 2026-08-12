@@ -140,7 +140,7 @@ export const geocodeResources = async (
   if (!mapboxToken) {
     console.error(
       "[geocode] MAPBOX_GEOCODER_TOKEN is empty. Pins will NOT appear. " +
-        "Check apps/blog/.env and restart the dev server."
+        "Check apps/website/.env and restart the dev server."
     )
     return stats
   }
