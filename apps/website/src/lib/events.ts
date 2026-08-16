@@ -21,6 +21,7 @@ import type {
   SerializedEvent,
 } from "@/types"
 import { findActionNetworkUrl } from "./action-network"
+import { htmlToPlainText, normalizeEventLocation } from "./event-content"
 import { fetchGoogleCalendarEvents } from "./google-calendar"
 import { getMockEvents } from "./mocks/events"
 
@@ -96,8 +97,17 @@ const merge = (
   const startISO = (g.start.dateTime ?? g.start.date) as string
   const endISO = (g.end.dateTime ?? g.end.date) as string
 
+  // gcal descriptions are HTML and locations often hold an RSVP link instead of an
+  // address; normalize both here so every consumer gets display-ready strings.
+  const description = g.description
+    ? htmlToPlainText(g.description) || null
+    : null
+  const location = normalizeEventLocation(g.location)
+
+  // Scan the flattened description rather than the raw HTML: gcal wraps hrefs in
+  // google.com/url redirects, and the plain-text form has already unwrapped them.
   const extractedActionNetworkUrl = findActionNetworkUrl(
-    g.description,
+    description,
     g.location
   )
   const rsvpLink = customization?.rsvpLink ?? extractedActionNetworkUrl ?? null
@@ -105,8 +115,8 @@ const merge = (
   return {
     id: g.id,
     title: g.summary ?? "Untitled event",
-    description: g.description ?? null,
-    location: g.location ?? null,
+    description,
+    location,
     startISO,
     endISO,
     isAllDay,

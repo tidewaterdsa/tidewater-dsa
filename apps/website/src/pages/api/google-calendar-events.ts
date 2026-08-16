@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro"
 import { addMonths, endOfMonth, startOfMonth, subMonths } from "date-fns"
+import { normalizeEventLocation } from "@/lib/event-content"
 import { fetchGoogleCalendarEvents } from "@/lib/google-calendar"
 import { getMockEvents } from "@/lib/mocks/events"
 
@@ -83,7 +84,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const trimmed = events.map((e) => ({
       id: e.id,
       title: e.summary ?? "Untitled event",
-      location: e.location ?? null,
+      location: normalizeEventLocation(e.location),
       startISO: e.start.dateTime ?? e.start.date ?? null,
       endISO: e.end.dateTime ?? e.end.date ?? null,
       isAllDay: Boolean(e.start.date && !e.start.dateTime),

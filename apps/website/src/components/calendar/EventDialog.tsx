@@ -22,6 +22,7 @@ import { Badge } from "@tidewater-dsa/ui/components/badge"
 import type { EventType, SerializedEvent, WorkingGroup } from "@/types"
 import { ATTENDANCE_LABEL } from "@/lib/event-constants"
 import { formatEventDate, formatEventTime } from "@/lib/format"
+import { LinkifiedText } from "./LinkifiedText"
 
 interface InfoRowProps {
   icon: ReactNode
@@ -137,7 +138,7 @@ const EventDetails = ({
 
       {event.description && !event.summary && (
         <div className="max-h-56 overflow-y-auto border-l-2 border-primary bg-muted/40 px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-foreground-soft">
-          {event.description}
+          <LinkifiedText text={event.description} />
         </div>
       )}
 
