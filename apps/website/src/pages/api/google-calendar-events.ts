@@ -6,6 +6,8 @@ import { getMockEvents } from "@/lib/mocks/events"
 
 const MAX_WINDOW_MONTHS = 24
 
+const JSON_HEADERS = { "Content-Type": "application/json" }
+
 const clampMonths = (raw: string | null, fallback: number): number => {
   if (!raw) return fallback
 
@@ -29,10 +31,7 @@ const mocksResponse = (timeMin: Date, timeMax: Date): Response => {
 
   return new Response(JSON.stringify({ events: trimmed }), {
     status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
+    headers: JSON_HEADERS,
   })
 }
 
@@ -68,7 +67,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       JSON.stringify({
         error: "Google Calendar credentials not configured.",
       }),
-      { status: 503, headers: { "Content-Type": "application/json" } }
+      { status: 503, headers: JSON_HEADERS }
     )
   }
 
@@ -93,17 +92,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     return new Response(JSON.stringify({ events: trimmed }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=60",
-      },
+      headers: { ...JSON_HEADERS, "Cache-Control": "private, max-age=60" },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: JSON_HEADERS,
     })
   }
 }

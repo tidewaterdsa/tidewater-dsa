@@ -7,16 +7,14 @@
     "directory": "./dist",
   },
   "vars": {
-    "USE_MOCK_DATA": "false",
+    "ENVIRONMENT": "production",
     "PUBLIC_SANITY_VISUAL_EDITING_ENABLED": "false",
-    "PUBLIC_SANITY_PROJECT_ID": "r8316tsu",
-    "PUBLIC_SANITY_DATASET": "production",
   },
   "kv_namespaces": [
     {
       "binding": "GEOCODE_CACHE",
-      "id": "f1afa707f3b847f7ac2fd050bcaa2f45",
-      "preview_id": "0734be3a826849b090653fe756d802fa",
+      "id": "289467be6406419093376626bd86bb78",
+      "preview_id": "47e565590c6b46e48b5cb9965d1a27b2",
     },
   ],
   "env": {
@@ -31,15 +29,13 @@
       "kv_namespaces": [
         {
           "binding": "GEOCODE_CACHE",
-          "id": "f1afa707f3b847f7ac2fd050bcaa2f45",
-          "preview_id": "0734be3a826849b090653fe756d802fa",
+          "id": "999d257f38114f3bb9cb418734e9f042",
+          "preview_id": "fac3c337e8684b75b86c9866e830e836",
         },
       ],
       "vars": {
+        "ENVIRONMENT": "staging",
         "PUBLIC_SANITY_VISUAL_EDITING_ENABLED": "true",
-        "USE_MOCK_DATA": "true",
-        "PUBLIC_SANITY_PROJECT_ID": "r8316tsu",
-        "PUBLIC_SANITY_DATASET": "production",
       },
     },
   },
