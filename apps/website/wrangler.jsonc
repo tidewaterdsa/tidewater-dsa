@@ -15,7 +15,7 @@
   },
   "kv_namespaces": [
     {
-      "binding": "GEOCODE_CACHE",
+      "binding": "CACHE",
       "id": "289467be6406419093376626bd86bb78",
       "preview_id": "47e565590c6b46e48b5cb9965d1a27b2",
     },
@@ -32,7 +32,7 @@
       },
       "kv_namespaces": [
         {
-          "binding": "GEOCODE_CACHE",
+          "binding": "CACHE",
           "id": "999d257f38114f3bb9cb418734e9f042",
           "preview_id": "fac3c337e8684b75b86c9866e830e836",
         },

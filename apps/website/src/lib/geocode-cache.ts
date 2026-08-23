@@ -1,7 +1,7 @@
 /**
  * Persistent geocode cache.
  *
- * Backed by Cloudflare KV in production (via the GEOCODE_CACHE binding) and
+ * Backed by Cloudflare KV in production (via the CACHE binding) and
  * by an in-memory Map in local dev without a proxy, or when KV is otherwise unavailable.
  * Positive cache entries never expire, coordinates resolve deterministically.
  * Negatives expire after 30 days so the cache self-heals when admins fix bad addresses.

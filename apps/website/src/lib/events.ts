@@ -29,6 +29,7 @@ interface EventsEnv {
   GOOGLE_CALENDAR_ID?: string
   GOOGLE_CALENDAR_API_KEY?: string
   USE_MOCK_DATA?: string
+  CACHE?: KVNamespace
 }
 
 export const getEvents = async (
@@ -69,6 +70,7 @@ export const getEvents = async (
       apiKey,
       timeMin: rangeStart,
       timeMax: rangeEnd,
+      cache: runtimeEnv?.CACHE,
     }),
     // Overlays aren't part of visual editing, so disabling stega keeps
     // URLs clean for href use and enum values comparable as plain strings

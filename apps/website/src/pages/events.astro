@@ -20,7 +20,7 @@ import { loadQuery } from "@/lib/load-query"
 
 Astro.response.headers.set(
   "Cache-Control",
-  "public, max-age=300, stale-while-revalidate=600"
+  "public, max-age=60, stale-while-revalidate=600"
 )
 
 // Fetch window: 1 month back, 4 months forward

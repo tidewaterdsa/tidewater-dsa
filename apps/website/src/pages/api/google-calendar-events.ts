@@ -77,6 +77,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       apiKey,
       timeMin,
       timeMax,
+      cache: runtimeEnv?.CACHE,
     })
 
     // Strip to only the fields the event customization panel needs
@@ -92,7 +93,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     return new Response(JSON.stringify({ events: trimmed }), {
       status: 200,
-      headers: { ...JSON_HEADERS, "Cache-Control": "private, max-age=60" },
+      headers: {
+        ...JSON_HEADERS,
+        "Cache-Control": "private, max-age=60",
+      },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"

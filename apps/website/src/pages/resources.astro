@@ -84,7 +84,7 @@ if (!spreadsheetId) {
     const rows = await fetchSheetValues({ spreadsheetId, range, apiKey })
     resources = parseResourceRows(rows)
 
-    const kv = Astro.locals.runtime?.env.GEOCODE_CACHE
+    const kv = Astro.locals.runtime?.env.CACHE
     const cache = kv ? createKvGeocodeCache(kv) : createMemoryGeocodeCache()
 
     await geocodeResources(resources, {

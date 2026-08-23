@@ -6,7 +6,7 @@ type KVNamespace = import("@cloudflare/workers-types").KVNamespace
 
 /** Cloudflare runtime environment shape. Add bindings here as they're introduced. */
 interface CloudflareEnv {
-  GEOCODE_CACHE: KVNamespace
+  CACHE: KVNamespace
   /** "production" | "staging". Anything else is treated as non-production. */
   ENVIRONMENT?: string
   GOOGLE_CALENDAR_ID?: string
