@@ -5,6 +5,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist",
+    // Astro adapter calls env.ASSETS.fetch() for any route it cannot match. 
+    // Without a binding name that throws, turning 404s into 500s.
+    "binding": "ASSETS",
   },
   "vars": {
     "ENVIRONMENT": "production",
@@ -25,6 +28,7 @@
       "compatibility_flags": ["nodejs_compat"],
       "assets": {
         "directory": "./dist",
+        "binding": "ASSETS",
       },
       "kv_namespaces": [
         {

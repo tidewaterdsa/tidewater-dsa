@@ -13,6 +13,8 @@ import { getInvolvedPageType } from "./getInvolvedPage"
 import { getInvolvedWayType } from "./way"
 import { aboutValueType } from "./aboutValue"
 import { aboutPageType } from "./aboutPage"
+import { notFoundLinkType } from "./notFoundLink"
+import { notFoundPageType } from "./notFoundPage"
 
 /**
  * Registration order matters for Sanity's TypeGen
@@ -27,6 +29,7 @@ export const schemaTypes = [
   priorityType,
   getInvolvedWayType,
   aboutValueType,
+  notFoundLinkType,
 
   // Document types
   postType,
@@ -38,6 +41,7 @@ export const schemaTypes = [
   eventTypesType,
   workingGroupsType,
   resourcesPageType,
+  notFoundPageType,
   chapterPrioritiesPageType,
   getInvolvedPageType,
   aboutPageType,

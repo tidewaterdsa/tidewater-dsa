@@ -1,0 +1,111 @@
+---
+import Layout from "@/layouts/main.astro"
+import PageHeading from "@/components/headings/PageHeading.astro"
+import { loadQuery } from "@/lib/load-query"
+import { NOT_FOUND_PAGE_QUERY } from "@/sanity/queries"
+import type { NOT_FOUND_PAGE_QUERY_RESULT } from "@/sanity/types"
+
+/**
+ * Rendered for any unmatched route, and for `[slug].astro` when Sanity has no
+ * page at that slug (it rewrites here rather than returning an empty body,
+ * which left the browser to draw its own error screen).
+ *
+ * Every field falls back to a hard-coded default: this page has to render even
+ * when Sanity is unreachable, since "content failed to load" is one of the ways
+ * a visitor ends up here.
+ */
+const { data } = await loadQuery<NOT_FOUND_PAGE_QUERY_RESULT>({
+  query: NOT_FOUND_PAGE_QUERY,
+})
+
+const pageData = data?.page
+
+const pageTitle = pageData?.title ?? "Page not found"
+const eyebrow = pageData?.eyebrow ?? "Error 404"
+const headline = pageData?.headline ?? "That page *isn't here*"
+const intro =
+  pageData?.intro ??
+  "The link may be out of date, or the page may have moved. Nothing is broken on your end."
+const linksEyebrow = pageData?.linksEyebrow ?? "Try one of these"
+
+const fallbackLinks = [
+  {
+    href: "/events",
+    label: "Events calendar",
+    blurb: "Meetings, actions, and socials.",
+  },
+  {
+    href: "/resources",
+    label: "Community resources",
+    blurb: "Mutual aid and local services.",
+  },
+  {
+    href: "/get-involved",
+    label: "Get involved",
+    blurb: "Join the chapter or a working group.",
+  },
+  {
+    href: "/about",
+    label: "About us",
+    blurb: "Who we are and what we organize for.",
+  },
+]
+
+const links =
+  pageData?.links && pageData.links.length > 0
+    ? pageData.links.filter(
+        (link): link is { label: string; blurb: string; href: string } =>
+          Boolean(link.label && link.blurb && link.href)
+      )
+    : fallbackLinks
+---
+
+<Layout title={pageTitle}>
+  <section class="layout-container">
+    <PageHeading eyebrow={eyebrow} headline={headline} />
+
+    <div class="max-w-readable mb-12">
+      <p class="text-lg">{intro}</p>
+    </div>
+
+    {
+      links.length > 0 && (
+        <nav aria-label="Suggested pages">
+          <span class="mono-eyebrow mb-4 block text-primary">
+            {linksEyebrow}
+          </span>
+
+          <ul class="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2">
+            {links.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  class="group flex h-full flex-col bg-background p-5 focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <span
+                    class="mb-3 h-0.5 w-9 bg-primary transition-[width] duration-200 group-hover:w-full group-focus-visible:w-full motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
+                  <span class="font-semibold transition-colors group-hover:text-primary group-focus-visible:text-primary">
+                    {link.label}
+                  </span>
+                  <span class="mt-1 text-sm text-muted-foreground">
+                    {link.blurb}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+
+    <p class="mt-10 text-sm text-muted-foreground">
+      Looking for something specific? <a
+        href="/"
+        class="underline underline-offset-4 hover:text-primary"
+        >Start from the homepage</a
+      >.
+    </p>
+  </section>
+</Layout>

@@ -206,6 +206,24 @@ export type ChapterPrioritiesPage = {
   showSignup?: boolean
 }
 
+export type NotFoundPage = {
+  _id: string
+  _type: "notFoundPage"
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  title?: string
+  eyebrow?: string
+  headline?: string
+  intro?: string
+  linksEyebrow?: string
+  links?: Array<
+    {
+      _key: string
+    } & NotFoundLink
+  >
+}
+
 export type ResourcesPage = {
   _id: string
   _type: "resourcesPage"
@@ -637,6 +655,13 @@ export type Post = {
   }>
 }
 
+export type NotFoundLink = {
+  _type: "notFoundLink"
+  label?: string
+  blurb?: string
+  href?: string
+}
+
 export type AboutValue = {
   _type: "aboutValue"
   headline?: string
@@ -789,6 +814,7 @@ export type AllSanitySchemaTypes =
   | SanityImageHotspot
   | GetInvolvedPage
   | ChapterPrioritiesPage
+  | NotFoundPage
   | ResourcesPage
   | WorkingGroups
   | Slug
@@ -805,6 +831,7 @@ export type AllSanitySchemaTypes =
   | SiteSettings
   | Page
   | Post
+  | NotFoundLink
   | AboutValue
   | GetInvolvedWay
   | Priority
@@ -1138,6 +1165,25 @@ export type HOME_PAGE_QUERY_RESULT = {
   noRsvpMessage: string | null
 } | null
 
+// Source: sanity/queries/notFoundPage.ts
+// Variable: NOT_FOUND_PAGE_QUERY
+// Query: {  "page": *[_type == "notFoundPage" && _id == "notFoundPage"][0] {    _id,    title,    eyebrow,    headline,    intro,    linksEyebrow,    links[] {      label,      blurb,      href    }  },}
+export type NOT_FOUND_PAGE_QUERY_RESULT = {
+  page: {
+    _id: "notFoundPage"
+    title: string | null
+    eyebrow: string | null
+    headline: string | null
+    intro: string | null
+    linksEyebrow: string | null
+    links: Array<{
+      label: string | null
+      blurb: string | null
+      href: string | null
+    }> | null
+  } | null
+}
+
 // Source: sanity/queries/page.ts
 // Variable: PAGE_BY_SLUG_QUERY
 // Query: {  "page": *[_type == "page" && slug.current == $slug][0] {    _id,    title,    "slug": slug.current,    body  },}
@@ -1373,6 +1419,7 @@ declare module "@sanity/client" {
     '{\n  "page": *[_type == "eventsPage" && _id == "eventsPage"][0] {\n    _id,\n    title,\n    eyebrow,\n    headline,\n    intro,\n    noFeaturedEventsMessage,\n    showSignup\n  },\n}': EVENTS_PAGE_QUERY_RESULT
     '{\n  "page": *[_type == "getInvolvedPage" && _id == "getInvolvedPage"][0] {\n    _id,\n    title,\n    eyebrow,\n    headline,\n    intro,\n    waysEyebrow,\n    waysHeadline,\n    ways[] {\n      headline,\n      description,\n      ctaText,\n      ctaLink\n    },\n    showSignup\n  },\n}': GET_INVOLVED_PAGE_QUERY_RESULT
     '\n  *[_type == "homePage" && _id == "homePage"][0] {\n    heroHeadline,\n    heroSubheadline,\n    heroImage,\n    heroCtaText,\n    heroCtaLink,\n    heroCta2Text,\n    heroCta2Link,\n    heroCtaPosition,\n    contentEyebrow,\n    contentHeadline,\n    body,\n    bodyImage,\n    eventsEyebrow,\n    eventsHeadline,\n    eventsImage,\n    noEventsHeadline,\n    noEventsBody,\n    noRsvpMessage,\n  }\n': HOME_PAGE_QUERY_RESULT
+    '{\n  "page": *[_type == "notFoundPage" && _id == "notFoundPage"][0] {\n    _id,\n    title,\n    eyebrow,\n    headline,\n    intro,\n    linksEyebrow,\n    links[] {\n      label,\n      blurb,\n      href\n    }\n  },\n}': NOT_FOUND_PAGE_QUERY_RESULT
     '{\n  "page": *[_type == "page" && slug.current == $slug][0] {\n    _id,\n    title,\n    "slug": slug.current,\n    body\n  },\n}': PAGE_BY_SLUG_QUERY_RESULT
     '{\n  "page": *[_type == "resourcesPage" && _id == "resourcesPage"][0] {\n    _id,\n    title,\n    eyebrow,\n    headline,\n    intro,\n    memberEyebrow,\n    memberHeadline,\n    body,\n    communityEyebrow,\n    communityHeadline,\n    communityIntro,\n    disclaimerText,\n    printFooterText,\n    googleSheetId,\n    googleSheetRange,\n    showSignup\n  },\n}': RESOURCES_PAGE_QUERY_RESULT
     '*[_type == "siteSettings"][0] {\n  siteTitle,\n  siteShortName,\n  logo,\n  logoTagline,\n  "navLinks": mainNav[]{\n    _key,\n    "title": @->title,\n    "slug": select(\n      @->_type == "eventsPage" => "events",\n      @->_type == "chapterPrioritiesPage" => "chapter-priorities",\n      @->_type == "resourcesPage" => "resources",\n      @->_type == "getInvolvedPage" => "get-involved",\n      @->_type == "aboutPage" => "about",\n      @->slug.current\n    )\n  },\n  callToActionText,\n  callToActionLink,\n  showRibbon,\n  ribbonText,\n  nextMeetingLabel,\n  nextMeetingMatch,\n  nextMeetingTextOverride,\n  nextMeetingLinkOverride,\n  bannerWords,\n  signupLink,\n  signupEyebrow,\n  signupHeadline,\n  signupDescription,\n  socialLinks,\n  socialIconStyle,\n  contactEmail,\n  contactEmailSubject,\n  footerTagline,\n  footerNoteLeft,\n  footerNoteRight,\n  footerColumns[]{\n    _key,\n    title,\n    links[]{ _key, label, href }\n  }\n}': SITE_SETTINGS_QUERY_RESULT

@@ -6,14 +6,14 @@ import { PAGE_BY_SLUG_QUERY } from "@/sanity/queries"
 import type { PAGE_BY_SLUG_QUERY_RESULT } from "@/sanity/types"
 
 const { slug } = Astro.params
-if (!slug) return new Response(null, { status: 404 })
+if (!slug) return Astro.rewrite("/404")
 
 const { data } = await loadQuery<PAGE_BY_SLUG_QUERY_RESULT>({
   query: PAGE_BY_SLUG_QUERY,
   params: { slug },
 })
 
-if (!data.page) return new Response(null, { status: 404 })
+if (!data.page) return Astro.rewrite("/404")
 
 const { page } = data
 ---
@@ -27,7 +27,7 @@ const { page } = data
       </h1>
     </header>
 
-    <div class="mx-auto w-full max-w-readable">
+    <div class="max-w-readable mx-auto w-full">
       <RichText value={page.body ?? []} />
     </div>
   </main>
