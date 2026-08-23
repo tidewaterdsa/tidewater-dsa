@@ -20,7 +20,7 @@ import { stegaClean } from "@sanity/client/stega"
 
 Astro.response.headers.set(
   "Cache-Control",
-  "public, max-age=300, stale-while-revalidate=600"
+  "public, max-age=60, stale-while-revalidate=600"
 )
 
 const [{ data: home }, { data: eventTypesData }] = await Promise.all([
