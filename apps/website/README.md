@@ -31,13 +31,16 @@ apps/website/
 │   ├── hooks/             # Shared React hooks
 │   ├── layouts/           # Astro layouts (main.astro)
 │   ├── lib/               # Helpers — formatters, gcal, sheets, geocode, social, etc.
-│   ├── pages/             # File-based routes
+│   ├── pages/             # File-based routes (incl. 404.astro)
 │   ├── styles/            # Global CSS extensions
-│   └── types/             # Shared domain types
+│   ├── types/             # Shared domain types
+│   └── middleware.ts      # noindex + security headers on every SSR route
 ├── astro.config.mjs
-├── wrangler.jsonc         # Cloudflare Workers config (KV bindings, etc.)
+├── wrangler.jsonc         # Workers config (CACHE + ASSETS bindings, env vars)
+├── DOMAIN-CUTOVER.md      # Checklist for moving to the custom domain
 └── sanity.config.ts       # Embedded Studio config with Presentation tool
 ```
+
 ## Typography
 
 The site's display typeface is **Manifold DSA**, the official DSA brand font. Seven weights (Light through Heavy, 300–900) are bundled as WOFF2 in `apps/website/public/fonts/` and declared in `src/styles/app.css`. The `--font-heading` token in `packages/ui/src/styles/globals.css` resolves to `"Manifold DSA"` with an Inter Variable fallback, so any app that imports the shared globals gets the brand heading font automatically, provided that app also serves the font files at `/fonts/`.
@@ -58,7 +61,6 @@ See the comments in `.env.example` for where to get each value. You'll need:
 
 - A Sanity viewer token (each dev generates their own)
 - A site URL (`PUBLIC_SITE_URL`) — `http://localhost:4321` in development, the canonical production URL otherwise. Used for absolute URLs in social cards and any link that has to leave the relative-path context.
-- An Action Network API key (only required if /api/subscribe is in use; see the Action Network section)
 - Google Calendar credentials (optional in dev, the app uses mock events when missing; required in production)
 - Google Sheets API key
 - Mapbox geocoding token
@@ -71,15 +73,34 @@ For the Google and Mapbox credentials, see the per-feature walkthroughs further 
 
 Astro only exposes environment variables to client-side code if they are prefixed with `PUBLIC_`. Variables without the prefix are server-only — they exist during SSR but are never sent to the browser.
 
-The Sanity project ID, dataset, and visual editing flag all need the `PUBLIC_` prefix because the embedded Studio runs as a client-side React app in the browser and needs access to these values. The `SANITY_API_READ_TOKEN`, `ACTION_NETWORK_API_KEY`, Google API keys, and `MAPBOX_GEOCODER_TOKEN` do NOT have the prefix. They are server-only secrets that must never reach the browser. The Mapbox token specifically is only ever used server-side during SSR for geocoding; it's never sent to the client.
+The Sanity project ID, dataset, and visual editing flag all need the `PUBLIC_` prefix because the embedded Studio runs as a client-side React app in the browser and needs access to these values. The `SANITY_API_READ_TOKEN`, Google API keys, and `MAPBOX_GEOCODER_TOKEN` do NOT have the prefix. They are server-only secrets that must never reach the browser. The Mapbox token specifically is only ever used server-side during SSR for geocoding; it's never sent to the client.
+
+### Build-time vs runtime variables
+
+The `PUBLIC_` prefix controls whether a value reaches the _browser_. A separate
+question is whether it is read at **build** time or at **request** time, and the
+two do not line up:
+
+| Variable                                                            | Read at                        |
+| ------------------------------------------------------------------- | ------------------------------ |
+| `PUBLIC_SANITY_PROJECT_ID`, `PUBLIC_SANITY_DATASET`                 | build (`astro.config.mjs`)     |
+| `PUBLIC_SITE_URL`                                                   | build (inlined by Vite)        |
+| `PUBLIC_SANITY_VISUAL_EDITING_ENABLED`                              | build (`load-query.ts`)        |
+| `SANITY_API_READ_TOKEN`                                             | build (`load-query.ts`)        |
+| `GOOGLE_*`, `MAPBOX_GEOCODER_TOKEN`, `USE_MOCK_DATA`, `ENVIRONMENT` | runtime (`locals.runtime.env`) |
+
+Build-time values are frozen into the bundle and **cannot be changed by a Worker
+variable** — they need a rebuild. This matters most for `PUBLIC_SANITY_DATASET`,
+which is how staging points at a different dataset than production. See
+[Deployment](#deployment) for which Cloudflare panel each one belongs in.
 
 ### CORS
 
 The Sanity project must allow your deployment URLs as CORS origins. Go to `sanity.io/manage` → API → CORS origins and add:
 
 - `http://localhost:4321` (local development)
-- Your production domain
-- Any preview domains
+- The production Worker URL or custom domain
+- The staging Worker URL
 
 Make sure **Allow credentials** is checked for each origin.
 
@@ -143,6 +164,7 @@ import { HOME_PAGE_QUERY } from "../../sanity/queries"
 
 const { data } = await loadQuery({ query: HOME_PAGE_QUERY })
 ---
+
 <h1>{data?.heroHeadline || "A Better World is Possible"}</h1>
 ```
 
@@ -219,28 +241,51 @@ In development without credentials, the app serves mock event data from `src/lib
 
 ### Caching
 
-The `/events` page and homepage send `Cache-Control: public, max-age=300, stale-while-revalidate=600` — 5-minute edge caching with 10-minute stale revalidation. Keeps gcal API calls to a sane volume without events going stale. If you need faster propagation for a specific update, edit the customization in Studio (no cache invalidation needed — the Sanity customization fetch is part of the same cached render) or wait ≤5 minutes.
+Calendar data is cached in two places.
+
+**KV cache (server).** `fetchGoogleCalendarEvents` in `src/lib/google-calendar.ts`
+caches the Google response in the `CACHE` KV namespace for 60 seconds. Four code
+paths reach Google — the events page, the homepage, the next-meeting ribbon in
+`main.astro` (so _every_ page), and the Customize Events Studio tool — and they
+share one API key and one quota. Without the cache, traffic on any of them can
+throttle the key and break the others.
+
+The requested window is snapped to month boundaries before it becomes the cache
+key. Two callers ask for a window starting at `now`, which would otherwise
+produce a fresh key on every request and never hit; both already over-fetch and
+re-filter against `now` in memory, so widening the window is safe. The result is
+a handful of stable keys and roughly one Google call per key per minute
+regardless of traffic.
+
+**Page headers (browser).** `/events` and the homepage send
+`Cache-Control: public, max-age=60, stale-while-revalidate=600`. Pages that
+don't render events (`/resources`, `/chapter-priorities`) stay at `max-age=300`.
+
+Worst-case staleness for a new calendar event is therefore about 60 seconds. If
+you need faster propagation for a specific update, edit the customization in
+Studio and wait one minute.
 
 ## Action Network
 
-Tidewater DSA uses [Action Network](https://actionnetwork.org) as the source of truth for RSVPs and the email list. The site integrates with AN in four places:
+Tidewater DSA uses [Action Network](https://actionnetwork.org) as the source of truth for RSVPs and the email list. The site integrates with AN in three places:
 
 1. **Newsletter signup widget** — the red signup section above the footer (rendered by `main.astro` when `showSignup` is true). The Site Settings document holds a `signupLink` pointing at an AN form URL. `extractActionNetworkInfo` in `src/lib/action-network.ts` parses it into `{ type, slug }` and the layout injects AN's embed script, which hydrates the form in-place.
 2. **Event RSVP widgets** — when an event has an AN URL, the event detail dialog renders the live AN RSVP widget inline (`ActionNetworkEvent` in `UpcomingEvents.tsx`). Visitors RSVP without leaving the site.
 3. **Auto-extracted RSVP links from Google Calendar** — `findActionNetworkUrl` in `src/lib/action-network.ts` scans the gcal event description and location for an `actionnetwork.org/events/<slug>` or `/forms/<slug>` URL. If one is found, it becomes the event's RSVP link automatically. Organizers who already paste AN links into their gcal events don't need to do anything in Sanity. The Customize Events tool's `rsvpLink` override wins when both are present.
-4.4. **Direct API submission**: the `/api/subscribe` endpoint POSTs to the AN OSDI API at `actionnetwork.org/api/v2/forms/<form-slug>/submissions`. Currently unused by the live site, since the embedded widget handles all sign ups today. The endpoint is kept as a fallback for any future surface (custom form, native mobile shell, etc.) that needs to submit programmatically without loading AN's JS.
 
 ### What lives where
 
 - `src/lib/action-network.ts` — URL parsing (`extractActionNetworkInfo`, `findActionNetworkUrl`) and the embed-stylesheet loader (`ensureStylesLoaded`).
 - `src/styles/action-network.css` — overrides for AN's whitelabel CSS (hides "Sponsored by," restyles form chrome to match the site).
-- `src/pages/api/subscribe.ts` — server endpoint, only used by code paths that need a programmatic submission rather than the widget.
 
-### `ACTION_NETWORK_API_KEY`
+### No API key needed
 
-Only the `/api/subscribe` endpoint reads `ACTION_NETWORK_API_KEY`. The embedded widgets (signup and event RSVP) load AN's public JS bundles and don't need the API key. In a deployment that only uses the widgets, this variable can be left unset.
-
-To get a key: sign in to Action Network, go to **Start Organizing → Details → API & Sync**, and copy the API key from the OSDI section. This key is shared across the team — ask an admin if you need it.
+All three integrations use Action Network's public embed bundles, so the site
+needs no AN API key. A `/api/subscribe` endpoint previously POSTed to the OSDI
+API; it was removed because nothing called it and it accepted unauthenticated,
+unvalidated writes to the chapter's live email list. If a custom form ever needs
+programmatic submission, recover it from git history and add validation, rate
+limiting, and an origin check before exposing it.
 
 ### Supported URL shapes
 
@@ -259,7 +304,7 @@ The `/resources` page renders a directory of mutual-aid, shelter, food, health, 
 
 Resource directories evolve constantly: hours change, contact info breaks, organizations relaunch with new branding. Keeping the data in a Google Sheet means anyone trusted with edit access can fix typos or add a new entry without touching the website. The accompanying Google Form makes adding a new resource a guided process. The site doesn't have its own admin UI for this because the Form already does the job, and Forms have built-in submitter validation, conditional logic, and free file uploads.
 
-Sanity owns *page-level* editorial content (the headline, intro paragraph, print footer text), but the row data itself stays in the sheet. Sanity's Resources Page document holds the Sheet ID and range so admins can switch sheets without redeploying.
+Sanity owns _page-level_ editorial content (the headline, intro paragraph, print footer text), but the row data itself stays in the sheet. Sanity's Resources Page document holds the Sheet ID and range so admins can switch sheets without redeploying.
 
 ### The Google Form workflow
 
@@ -327,18 +372,26 @@ The Mapbox token is used only for geocoding. The map basemap tiles come from Ope
 
 ### Cloudflare KV namespace setup
 
-Geocode results in production are cached in a Cloudflare KV namespace bound to the worker as `GEOCODE_CACHE`. In development, the app falls back to an in-process map (no KV needed). KV namespaces live in the same Cloudflare account as the worker.
+Geocode results in production are cached in a Cloudflare KV namespace bound to
+the worker as `CACHE`. The same namespace also backs the Google Calendar cache
+(see [Events → Caching](#caching)); keys are prefixed per purpose (`v2:` for
+geocoding, `gcal:v1:` for calendar) so they can't collide. In development, the
+app falls back to an in-process map (no KV needed). KV namespaces live in the
+same Cloudflare account as the worker.
+
+Production and staging each have their own namespace, so a staging run can't
+poison production's cache.
 
 1. Sign in to the Cloudflare dashboard using the **TidewaterDSA account**
 2. Go to **Workers & Pages → KV** in the sidebar
-3. Click **Create a namespace**, name it `tidewater-dsa-geocode-cache` (or whatever, the name is just a label, the binding name is what the code references)
+3. Click **Create a namespace** and give it any name — the name is just a dashboard label, the _binding_ name is what the code references
 4. Copy the namespace ID Cloudflare assigns. Also create a separate "preview" namespace if you want isolated `wrangler dev` testing, its ID goes in the `preview_id` field
 5. Open `apps/website/wrangler.jsonc` and update both IDs:
 
    ```jsonc
    "kv_namespaces": [
      {
-       "binding": "GEOCODE_CACHE",
+       "binding": "CACHE",
        "id": "<production_namespace_id_from_dashboard>",
        "preview_id": "<preview_namespace_id_from_dashboard>"
      }
@@ -346,6 +399,7 @@ Geocode results in production are cached in a Cloudflare KV namespace bound to t
    ```
 
    These IDs are not secrets, they're just namespace identifiers and have no value without write access to the Cloudflare account. They're committed to the repo intentionally, alongside the worker config.
+
 6. Commit and deploy. The worker will start writing geocode results to the new namespace on its first request.
 
 ### CSV export
@@ -373,9 +427,84 @@ Astro uses file-based routing. Any `.astro` file in `src/pages/` becomes a route
 
 For content-driven pages, query Sanity in the frontmatter using `loadQuery` and render the data. Check `src/pages/index.astro` and `src/pages/[slug].astro` for patterns to copy.
 
+### 404 handling
+
+`src/pages/404.astro` renders for any unmatched route. Its content is editable in
+Studio under **Pages → 404 Page** (`notFoundPage` singleton), and every field
+falls back to a hard-coded default — the page has to render even when Sanity is
+unreachable, since that's one of the ways a visitor ends up on an error page.
+
+`[slug].astro` returns `Astro.rewrite("/404")` when Sanity has no page at that
+slug. Returning a bare `new Response(null, { status: 404 })` instead leaves the
+browser to draw its own error screen, which is what it used to do.
+
+Unmatched routes also depend on the `ASSETS` binding in `wrangler.jsonc`. The
+adapter calls `env.ASSETS.fetch()` for anything it can't match, so without a
+binding name that throws a `TypeError` and every 404 becomes a 500.
+
+## Middleware
+
+`src/middleware.ts` runs for every server-rendered route. Static assets are
+served by the `ASSETS` binding before the Worker runs, so it covers pages and API
+routes only.
+
+### Search engine indexing
+
+Any deployment whose `ENVIRONMENT` runtime variable is not exactly `production`
+gets `X-Robots-Tag: noindex, nofollow`. This is a header rather than a
+`robots.txt` because one bundle deploys to both environments, so the decision has
+to be made at runtime — and unlike `robots.txt`, a header also keeps `/admin` out
+of an index once its URL has been discovered.
+
+It fails closed: anything not explicitly `production` is noindexed, so a missing
+or misspelled variable can't accidentally expose staging to crawlers.
+
+### Security headers
+
+| Header                    | Value                             |
+| ------------------------- | --------------------------------- |
+| `Content-Security-Policy` | `frame-ancestors 'self'`          |
+| `X-Content-Type-Options`  | `nosniff`                         |
+| `Referrer-Policy`         | `strict-origin-when-cross-origin` |
+
+`frame-ancestors 'self'` stops another site framing `/admin` and clickjacking a
+signed-in editor. It is `'self'` rather than `'none'` because Sanity presentation
+mode frames site pages from the Studio, which is same-origin (`studioUrl` is
+`/admin`).
+
+There is deliberately no `script-src` policy yet. The Action Network widget
+injects a remote script and stylesheet and the Studio uses inline scripts, so a
+strict policy breaks both and needs its own pass.
+
 ## Deployment
 
-The app deploys to Cloudflare Workers via the `@astrojs/cloudflare` adapter. On push to the main branch, Cloudflare's build pipeline runs `npm run build` and deploys the worker bundle plus static assets.
+The app deploys to Cloudflare Workers via the `@astrojs/cloudflare` adapter. Two
+Workers are connected to this repo through Cloudflare Workers Builds:
+
+| Worker                  | Branch    | Dataset      | Visual editing | Mock data          |
+| ----------------------- | --------- | ------------ | -------------- | ------------------ |
+| `tidewater-dsa`         | `main`    | `production` | off            | off                |
+| `tidewater-dsa-staging` | `staging` | `staging`    | on             | off                |
+
+Each Worker builds from the **repo root** — npm workspaces resolve
+`@tidewater-dsa/ui` from there — with a `--config` flag reaching into this app:
+
+- Root directory: `/`
+- Build command: `npm ci && npm run build`
+- Deploy command: `npx wrangler deploy --config apps/website/wrangler.jsonc --env=""`
+  (staging uses `--env staging`)
+
+Two things that will bite:
+
+- **The Worker name in the dashboard must match `name` in `wrangler.jsonc`.**
+  The deploy command targets the name in config, not the Worker the build is
+  attached to; a mismatch silently creates a second Worker.
+- **Each Worker sets its own production branch** (Settings → Build → Branch
+  control). For the staging Worker that branch is `staging`. Pushes to a
+  non-production branch run `wrangler versions upload` instead of deploying, so
+  the site wouldn't change.
+
+For moving to a custom domain, see [DOMAIN-CUTOVER.md](./DOMAIN-CUTOVER.md).
 
 ### Why Cloudflare Workers
 
@@ -383,19 +512,62 @@ The Cloudflare adapter gives us SSR with effectively zero hosting cost — the f
 
 ### Environment variables
 
-Set these in the Cloudflare dashboard under Workers & Pages → your project → Settings → Variables and Secrets:
+Cloudflare has **two** variable panels and they are not interchangeable. Which
+one a variable belongs in depends on whether the code reads it at build time or
+at request time (see [Build-time vs runtime
+variables](#build-time-vs-runtime-variables)).
 
-- `PUBLIC_SANITY_VISUAL_EDITING_ENABLED` — `false` for production, `true` for preview branches only
-- `SANITY_API_READ_TOKEN` — only needed when visual editing is enabled
-- `GOOGLE_CALENDAR_ID` and `GOOGLE_CALENDAR_API_KEY` — required for the events feature
-- `GOOGLE_SHEETS_API_KEY` — required for the community resources directory
-- `MAPBOX_GEOCODER_TOKEN` — required for the resources map view (geocoding)
-- `ACTION_NETWORK_API_KEY` — only needed if the `/api/subscribe` endpoint is in use
+**Settings → Build → Variables and secrets** — available during
+`npm run build`, frozen into the bundle:
 
-API keys and tokens should be added as **Secrets** (encrypted, hidden in the UI), not plain text Variables. The non-secret config (`PUBLIC_*` flags) can be plain Variables.
+- `PUBLIC_SANITY_PROJECT_ID`
+- `PUBLIC_SANITY_DATASET` — `production` or `staging`
+- `PUBLIC_SITE_URL` — the deployed origin, no trailing slash
+- `PUBLIC_SANITY_VISUAL_EDITING_ENABLED` — `false` in production
+- `SANITY_API_READ_TOKEN` — **staging only** (see below)
+- `NODE_OPTIONS` — build memory, if the build runs out
 
-Visual editing should generally be disabled in production, since it fetches draft content and adds overhead. Enable it only on a preview environment where editors can review changes before publishing.
+**Settings → Variables and Secrets** — read per request via
+`locals.runtime.env`. Add these as **Secrets**, not plain text:
+
+- `GOOGLE_CALENDAR_ID`, `GOOGLE_CALENDAR_API_KEY`
+- `GOOGLE_SHEETS_API_KEY`
+- `MAPBOX_GEOCODER_TOKEN`
+
+`ENVIRONMENT` and `PUBLIC_SANITY_VISUAL_EDITING_ENABLED` live in
+`wrangler.jsonc` rather than the dashboard. **Don't add plain-text runtime
+variables in the dashboard** — `wrangler deploy` overwrites dashboard `vars` from
+the config file on every build. Secrets are preserved; plain variables are not.
+
+#### Why `SANITY_API_READ_TOKEN` is staging-only
+
+`load-query.ts` reads the token through `import.meta.env`, so Vite **inlines it
+into the bundle as a plaintext string**. The bundle isn't publicly served
+(`public/.assetsignore` excludes `_worker.js`), but it is readable by anyone with
+Cloudflare dashboard access.
+
+Production builds with visual editing `false`, so the token branch is
+dead-code-eliminated and the value never appears in the bundle — which is why
+production doesn't need the variable at all. Staging builds with visual editing
+`true` and does bake it in. Keep it a read-only **Viewer** token, and don't add
+it to the production Worker: if someone later flips visual editing on there, it
+would be compiled in immediately.
+
+Visual editing should stay disabled in production. It fetches draft content, adds
+overhead, and pulls the token into the bundle.
 
 ### KV namespace bindings
 
-Unlike secrets, KV namespace bindings live in `wrangler.jsonc` in the repo, not in the dashboard. The committed `id` and `preview_id` fields point to specific KV namespaces in the Cloudflare account that owns the worker. See the **Cloudflare KV namespace setup** section under Community Resources for the one-time creation steps.
+Unlike secrets, bindings live in `wrangler.jsonc` in the repo, not in the
+dashboard:
+
+- `CACHE` — KV namespace backing geocoding and calendar caches. Production and
+  staging point at different namespaces.
+- `ASSETS` — the static asset service. Required: the adapter calls
+  `env.ASSETS.fetch()` for unmatched routes, and without it every 404 is a 500.
+
+The committed `id` and `preview_id` fields point to specific KV namespaces in the
+Cloudflare account that owns the worker. They aren't secrets — they're
+identifiers with no value without account access. See the **Cloudflare KV
+namespace setup** section under Community Resources for the one-time creation
+steps.
