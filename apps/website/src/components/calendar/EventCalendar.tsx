@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { addMonths, parseISO, subMonths } from "date-fns"
+import { toZonedTime } from "date-fns-tz"
+import { REGION_TIMEZONE } from "@/lib/region"
 import type { EventType, SerializedEvent, WorkingGroup } from "@/types"
 import { getEventTypeStyle, type EventTypeStyle } from "@/lib/event-type-config"
 import {
@@ -70,7 +72,9 @@ export const EventCalendar = ({
   noFeaturedEventsMessage,
 }: EventCalendarProps) => {
   const [viewMonth, setViewMonth] = useState<Date>(() =>
-    initialMonth ? parseISO(initialMonth) : new Date()
+    initialMonth
+      ? toZonedTime(parseISO(initialMonth), REGION_TIMEZONE)
+      : toZonedTime(new Date(), REGION_TIMEZONE)
   )
   const [view, setView] = useState<ViewMode>("month")
   const [selected, setSelected] = useState<SerializedEvent | null>(null)
@@ -85,7 +89,7 @@ export const EventCalendar = ({
 
   const styleFor = useMemo(() => makeStyleLookup(eventTypes), [eventTypes])
 
-  const now = useMemo(() => new Date(), [])
+  const now = useMemo(() => toZonedTime(new Date(), REGION_TIMEZONE), [])
 
   const filtered = useMemo(
     () => filterEvents(events, filters),
@@ -110,7 +114,7 @@ export const EventCalendar = ({
   }, [])
 
   const goToday = useCallback(() => {
-    const today = new Date()
+    const today = toZonedTime(new Date(), REGION_TIMEZONE)
     setViewMonth((m) => {
       setTransition(today > m ? "next" : "prev")
       return today

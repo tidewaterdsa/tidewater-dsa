@@ -27,3 +27,6 @@ export const isInRegion = (coords: { lat: number; lng: number }): boolean =>
   coords.lat <= REGION_BOUNDS.maxLat &&
   coords.lng >= REGION_BOUNDS.minLng &&
   coords.lng <= REGION_BOUNDS.maxLng
+
+/** The region's wall-clock timezone. */
+export const REGION_TIMEZONE = "America/New_York"

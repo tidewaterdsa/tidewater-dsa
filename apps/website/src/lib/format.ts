@@ -1,18 +1,24 @@
 import { differenceInDays, format, parse, parseISO } from "date-fns"
+import { formatInTimeZone } from "date-fns-tz"
+import { REGION_TIMEZONE } from "./region"
+
+/** Format an instant in the chapter's timezone, so SSR and the browser agree. */
+const fmt = (iso: string, pattern: string): string =>
+  formatInTimeZone(parseISO(iso), REGION_TIMEZONE, pattern)
 
 /**
  * "Tue, Apr 22" when the event is in the current year.
  * "Tue, Apr 22, 2027" when it's in a different year (to avoid ambiguity).
  */
 export const formatEventDate = (iso: string): string => {
-  const d = parseISO(iso)
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return format(d, sameYear ? "EEE, MMM d" : "EEE, MMM d, yyyy")
+  const sameYear =
+    fmt(iso, "yyyy") === formatInTimeZone(new Date(), REGION_TIMEZONE, "yyyy")
+  return fmt(iso, sameYear ? "EEE, MMM d" : "EEE, MMM d, yyyy")
 }
 
 /** "7:00 PM" — 12-hour format, uppercase AM/PM. */
 export const formatEventTime = (iso: string): string => {
-  return format(parseISO(iso), "h:mm a")
+  return fmt(iso, "h:mm a")
 }
 
 /**
@@ -41,11 +47,10 @@ export interface EventCardDate {
 }
 
 export const splitEventDate = (iso: string): EventCardDate => {
-  const d = parseISO(iso)
   return {
-    day: format(d, "d"),
-    monthYear: format(d, "MMM yyyy").toUpperCase(),
-    weekday: format(d, "EEE").toUpperCase(),
+    day: fmt(iso, "d"),
+    monthYear: fmt(iso, "MMM yyyy").toUpperCase(),
+    weekday: fmt(iso, "EEE").toUpperCase(),
   }
 }
 
@@ -61,11 +66,10 @@ export const formatEventCardMeta = (
   isAllDay: boolean,
   location: string | null
 ): EventCardMeta => {
-  const d = parseISO(iso)
-  const weekday = format(d, "EEE").toUpperCase()
+  const weekday = fmt(iso, "EEE").toUpperCase()
   const time = isAllDay
     ? "All day"
-    : format(d, "h:mm a").toLowerCase().replace(":00", "")
+    : fmt(iso, "h:mm a").toLowerCase().replace(":00", "")
   return {
     timeLine: `${weekday} · ${time}`,
     location: location || null,
@@ -87,6 +91,10 @@ export const parseUsDateToISO = (raw: string): string | null => {
   return format(parsed, "yyyy-MM-dd")
 }
 
+// formatVerifiedDate / formatVerifiedDateLong / parseUsDateToISO take date-only
+// strings (YYYY-MM-DD). parseISO gives them local midnight and `format` reads
+// local fields, so they round-trip on any runtime. Converting them to a zone
+// would shift them into the previous day.
 export const formatVerifiedDate = (iso: string): string =>
   format(parseISO(iso), "MMM yyyy")
 
@@ -94,7 +102,7 @@ export const formatVerifiedDateLong = (iso: string): string =>
   format(parseISO(iso), "MMMM d, yyyy")
 
 export const formatRefreshedAt = (iso: string): string =>
-  format(parseISO(iso), "MMM d, yyyy, h:mm a")
+  fmt(iso, "MMM d, yyyy, h:mm a")
 
 /**
  * Default freshness window for the verification badge.

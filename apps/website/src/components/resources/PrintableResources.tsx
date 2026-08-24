@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import type { Resource } from "@/types"
 import type { ResourceFilterState } from "@/lib/resource-filters"
-import { format } from "date-fns"
+import { formatInTimeZone } from "date-fns-tz"
+import { REGION_TIMEZONE } from "@/lib/region"
 
 interface PrintableResourcesProps {
   resources: Resource[]
@@ -26,7 +27,7 @@ export const PrintableResources = ({
 
   if (!mounted) return null
 
-  const today = format(new Date(), "MMMM d, yyyy")
+  const today = formatInTimeZone(new Date(), REGION_TIMEZONE, "MMMM d, yyyy")
 
   const activeFilters: string[] = []
 

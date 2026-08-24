@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { parseISO, isSameDay } from "date-fns"
+import { toZonedTime } from "date-fns-tz"
+import { REGION_TIMEZONE } from "@/lib/region"
 import {
   CalendarDaysIcon,
   ClockIcon,
@@ -47,8 +49,8 @@ const EventDetails = ({
   eventTypes,
   workingGroups,
 }: EventDetailsProps) => {
-  const start = parseISO(event.startISO)
-  const end = parseISO(event.endISO)
+  const start = toZonedTime(parseISO(event.startISO), REGION_TIMEZONE)
+  const end = toZonedTime(parseISO(event.endISO), REGION_TIMEZONE)
   const sameDay = isSameDay(start, end)
 
   const eventTypeLabel = useMemo(() => {
