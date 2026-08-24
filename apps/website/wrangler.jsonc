@@ -9,6 +9,14 @@
     // Without a binding name that throws, turning 404s into 500s.
     "binding": "ASSETS",
   },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+    },
+  },
   "vars": {
     "ENVIRONMENT": "production",
     "PUBLIC_SANITY_VISUAL_EDITING_ENABLED": "false",
@@ -37,6 +45,14 @@
           "preview_id": "fac3c337e8684b75b86c9866e830e836",
         },
       ],
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "invocation_logs": true,
+        },
+      },
       "vars": {
         "ENVIRONMENT": "staging",
         "PUBLIC_SANITY_VISUAL_EDITING_ENABLED": "true",
