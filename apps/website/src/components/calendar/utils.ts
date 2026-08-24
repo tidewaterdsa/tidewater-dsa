@@ -1,4 +1,10 @@
-import { isSameDay, parseISO, startOfDay } from "date-fns"
+import {
+  endOfMonth,
+  isSameDay,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+} from "date-fns"
 import { toZonedTime } from "date-fns-tz"
 import { REGION_TIMEZONE } from "@/lib/region"
 
@@ -45,12 +51,8 @@ export const featuredForMonth = (
   events: SerializedEvent[],
   viewMonth: Date
 ): SerializedEvent[] => {
-  const monthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)
-  const monthEnd = new Date(
-    viewMonth.getFullYear(),
-    viewMonth.getMonth() + 1,
-    0
-  )
+  const monthStart = startOfMonth(viewMonth)
+  const monthEnd = endOfMonth(viewMonth)
   return events.filter((e) => {
     if (!e.featured) return false
     const start = toZonedTime(parseISO(e.startISO), REGION_TIMEZONE)
