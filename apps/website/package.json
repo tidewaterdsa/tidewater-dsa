@@ -11,7 +11,8 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx,astro}\"",
     "typecheck": "astro check",
-    "typegen": "sanity schema extract --path ./sanity/schema.json && sanity typegen generate"
+    "typegen": "sanity schema extract --path ./sanity/schema.json && sanity typegen generate",
+    "sanity:refresh-staging": "sanity dataset export production /tmp/tdsa-staging-snapshot.tar.gz && sanity dataset import /tmp/tdsa-staging-snapshot.tar.gz staging --replace && rm -f /tmp/tdsa-staging-snapshot.tar.gz"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.0.0",

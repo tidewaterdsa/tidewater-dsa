@@ -142,6 +142,64 @@ If the new singleton backs a page that should appear in the site header, two mor
 
 Once both are in place, editors can pick the new singleton in the navbar field on Site Settings and it'll render in the header at the mapped URL.
 
+### Datasets
+
+There are two datasets in the same Sanity project:
+
+| Dataset      | Used by                           | Role                            |
+| ------------ | --------------------------------- | ------------------------------- |
+| `production` | the production Worker             | The source of truth for content |
+| `staging`    | the staging Worker, and local dev | A disposable copy               |
+
+**Content flows `production` → `staging`, never the other way.** Sanity has no
+content merge: if both datasets accept edits they diverge with no way to
+reconcile them, and someone's work gets discarded. So:
+
+- **Admins and editors only ever work in the production Studio.** Real content
+  lives in one place.
+- **Devs point local dev at `staging`** (`PUBLIC_SANITY_DATASET=staging` in
+  `.env`) and can break anything. Visual editing is enabled on the staging
+  deployment, so schema and layout changes can be checked against realistic
+  content before they reach `main`.
+- **Never enter content into `staging` that you would mind losing.**
+
+Refresh `staging` with a copy of production whenever it drifts:
+
+```bash
+npm run sanity:refresh-staging --workspace=website
+```
+
+That exports `production`, imports it into `staging` with `--replace`, and
+deletes the snapshot. Documents sharing an ID are overwritten; anything created
+only in `staging` survives. Run `npx sanity login` first if the CLI isn't
+authenticated.
+
+Note that `sanity.io/manage` computes dataset document counts periodically, so a
+freshly populated dataset can show `N/A` for a while. Query it instead:
+
+```bash
+npx sanity documents query 'count(*)' --dataset staging
+```
+
+**Schema is code, not content.** It lives in `sanity/schemas/`, deploys with the
+Studio, and applies to whichever dataset that build points at — there is nothing
+to copy between datasets. A schema change reaches `staging` by deploying the
+`staging` branch and `production` by merging to `main`.
+
+For a schema change that needs existing documents reshaped, rehearse the
+migration on the disposable copy first:
+
+```bash
+npx sanity migration create rename-event-location
+npx sanity migration run rename-event-location --dataset staging              # dry run
+npx sanity migration run rename-event-location --dataset staging --no-dry-run
+# verify in the staging Studio, then:
+npx sanity migration run rename-event-location --dataset production --no-dry-run
+```
+
+Tokens and CORS origins are scoped to the _project_, not the dataset, so both
+datasets are covered by the same read token and the same allowed origins.
+
 ### Visual editing
 
 The Presentation tool at `/admin/presentation` lets editors see the live site in an iframe and click on text to edit it directly. Toggle the **Edit** switch in the top-left of the preview to switch between editing mode (click to edit) and browse mode (click to navigate).
@@ -481,10 +539,10 @@ strict policy breaks both and needs its own pass.
 The app deploys to Cloudflare Workers via the `@astrojs/cloudflare` adapter. Two
 Workers are connected to this repo through Cloudflare Workers Builds:
 
-| Worker                  | Branch    | Dataset      | Visual editing | Mock data          |
-| ----------------------- | --------- | ------------ | -------------- | ------------------ |
-| `tidewater-dsa`         | `main`    | `production` | off            | off                |
-| `tidewater-dsa-staging` | `staging` | `staging`    | on             | off                |
+| Worker                  | Branch    | Dataset      | Visual editing | Mock data |
+| ----------------------- | --------- | ------------ | -------------- | --------- |
+| `tidewater-dsa`         | `main`    | `production` | off            | off       |
+| `tidewater-dsa-staging` | `staging` | `staging`    | on             | off       |
 
 Each Worker builds from the **repo root** — npm workspaces resolve
 `@tidewater-dsa/ui` from there — with a `--config` flag reaching into this app:
