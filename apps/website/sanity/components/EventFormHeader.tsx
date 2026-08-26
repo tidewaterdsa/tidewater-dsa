@@ -1,15 +1,25 @@
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { Flex, Stack, Text } from "@sanity/ui"
 import { ArrowLeftIcon } from "@sanity/icons"
+import { useWorkspace } from "sanity"
 import { useRouter } from "sanity/router"
 import type { InputProps } from "sanity"
+import { CUSTOMIZE_TOOL_NAME } from "../tools/customize-events/constants"
 
 export const EventFormHeader = (props: InputProps) => {
   const router = useRouter()
+  const { basePath } = useWorkspace()
+
+  // navigateUrl takes a browser path, so basePath has to be included
+  // without it this hits the site's own /customize and Studio reports "Workspace not found".
+  const customizeToolPath = useMemo(
+    () => `${basePath === "/" ? "" : basePath}/${CUSTOMIZE_TOOL_NAME}`,
+    [basePath]
+  )
 
   const goBack = useCallback(() => {
-    router.navigateUrl({ path: "/customize" })
-  }, [router])
+    router.navigateUrl({ path: customizeToolPath })
+  }, [customizeToolPath, router])
 
   return (
     <Stack space={4}>
@@ -19,7 +29,7 @@ export const EventFormHeader = (props: InputProps) => {
             e.preventDefault()
             goBack()
           }}
-          href="/admin/customize"
+          href={customizeToolPath}
           style={{
             display: "inline-flex",
             alignItems: "center",

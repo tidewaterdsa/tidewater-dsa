@@ -19,22 +19,18 @@ const formatMetaLine = (event: GoogleCalendarEventRow): string => {
 
 interface EventRowProps {
   event: EventWithCustomization
-  creating: boolean
   featuring: boolean
-  onCustomize: () => void
   onOpen: () => void
   onToggleFeatured: () => void
 }
 
 export const EventRow = ({
   event,
-  creating,
   featuring,
-  onCustomize,
   onOpen,
   onToggleFeatured,
 }: EventRowProps) => {
-  const customized = Boolean(event.customization)
+  const customized = event.isCustomized
   const featured = event.customization?.featured
   const eventType = event.customization?.eventType
 
@@ -93,9 +89,7 @@ export const EventRow = ({
             ) : (
               <Button
                 text="Customize"
-                onClick={onCustomize}
-                disabled={creating}
-                loading={creating}
+                onClick={onOpen}
                 style={{
                   backgroundColor: TDSA_RED,
                   color: "white",

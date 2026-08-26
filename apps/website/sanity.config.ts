@@ -5,7 +5,12 @@ import { presentationTool, defineLocations } from "sanity/presentation"
 import { CalendarIcon } from "@sanity/icons"
 import { schemaTypes } from "./sanity/schemas"
 import { structure, SINGLETON_TYPES } from "./sanity/structure"
-import { CustomizeEventsTool } from "./sanity/tools/customize-events/CustomizeEventsTool"
+import { customizeEventsStructure } from "./sanity/tools/customize-events/structure"
+import {
+  CUSTOMIZE_TOOL_NAME,
+  EVENT_CUSTOMIZATION_TEMPLATE_ID,
+  EVENT_SCHEMA_TYPE,
+} from "./sanity/tools/customize-events/constants"
 
 const projectId =
   typeof process !== "undefined" && process.env.PUBLIC_SANITY_PROJECT_ID
@@ -77,23 +82,33 @@ export default defineConfig({
         },
       },
     }),
-    visionTool(),
-  ],
-  schema: { types: schemaTypes },
-  tools: (prev) => {
-    const presentationIndex = prev.findIndex((t) => t.name === "presentation")
-    const customizeTool = {
-      name: "customize",
+    structureTool({
+      name: CUSTOMIZE_TOOL_NAME,
       title: "Customize Events",
       icon: CalendarIcon,
-      component: CustomizeEventsTool,
-    }
-
-    return [
-      ...prev.slice(0, presentationIndex + 1),
-      customizeTool,
-      ...prev.slice(presentationIndex + 1),
-    ]
+      structure: customizeEventsStructure,
+    }),
+    visionTool(),
+  ],
+  schema: {
+    types: schemaTypes,
+    templates: (prev) => [
+      ...prev,
+      {
+        id: EVENT_CUSTOMIZATION_TEMPLATE_ID,
+        title: "Event customization from Google Calendar",
+        schemaType: EVENT_SCHEMA_TYPE,
+        // Declaring params also keeps this out of the "new document" menu.
+        parameters: [
+          { name: "googleEventId", type: "string" },
+          { name: "titleHint", type: "string" },
+        ],
+        value: (params: { googleEventId: string; titleHint?: string }) => ({
+          googleEventId: params.googleEventId,
+          titleHint: params.titleHint,
+        }),
+      },
+    ],
   },
   document: {
     actions: (input, context) => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Box,
   Button,
@@ -12,11 +12,14 @@ import {
 } from "@sanity/ui"
 import { RefreshIcon } from "@sanity/icons"
 import { useClient } from "sanity"
-import { useRouter } from "sanity/router"
+import { useRouter, useRouterState } from "sanity/router"
+import type { RouterState } from "sanity/router"
 import { EventRow } from "./EventRow"
 import { Toolbar } from "./Toolbar"
+import { EVENT_CUSTOMIZATION_TEMPLATE_ID, EVENT_SCHEMA_TYPE } from "./constants"
 import type {
   Customization,
+  CustomizationRow,
   EventWithCustomization,
   GoogleCalendarEventRow,
   StatusFilter,
@@ -25,13 +28,24 @@ import type {
 import { SANITY_API_VERSION } from "@/lib/sanity-config"
 
 const CUSTOMIZATIONS_QUERY = `
-  *[_type == "event" && defined(googleEventId)]{
+  *[_type == "event" && defined(googleEventId) && !(_id in path("versions.**"))]{
     _id,
     googleEventId,
     featured,
-    eventType
+    eventType,
+    attendance,
+    topics,
+    workingGroup,
+    rsvpLink,
+    summary
   }
 `
+
+const DRAFTS_PREFIX = "drafts."
+
+/** True while a customization is open in the pane beside this list. */
+const selectEditorIsOpen = (state: RouterState): boolean =>
+  Array.isArray(state.panes) && state.panes.length > 0
 
 const isEventPast = (event: GoogleCalendarEventRow, now: number): boolean => {
   const relevantISO = event.endISO ?? event.startISO
@@ -39,14 +53,45 @@ const isEventPast = (event: GoogleCalendarEventRow, now: number): boolean => {
   return new Date(relevantISO).getTime() < now
 }
 
+// googleEventId/titleHint are bookkeeping and `featured: false` is an initial value,
+// so none of them count as customizing anything.
+const customizesAnything = (customization: Customization): boolean =>
+  customization.featured === true ||
+  Boolean(customization.eventType) ||
+  Boolean(customization.attendance) ||
+  (customization.topics?.length ?? 0) > 0 ||
+  Boolean(customization.workingGroup) ||
+  Boolean(customization.rsvpLink) ||
+  Boolean(customization.summary)
+
+// The Studio client reads `raw`, so an edited customization comes back twice. Collapse
+// to one row per event, draft wins - it has the newest values.
+const indexCustomizations = (
+  rows: CustomizationRow[]
+): Map<string, Customization> => {
+  const byGoogleEventId = new Map<string, Customization>()
+
+  for (const { _id, ...fields } of rows) {
+    const isDraft = _id.startsWith(DRAFTS_PREFIX)
+    if (byGoogleEventId.has(fields.googleEventId) && !isDraft) continue
+
+    byGoogleEventId.set(fields.googleEventId, {
+      ...fields,
+      publishedId: isDraft ? _id.slice(DRAFTS_PREFIX.length) : _id,
+      currentId: _id,
+    })
+  }
+
+  return byGoogleEventId
+}
+
 export const CustomizeEventsTool = () => {
   const [events, setEvents] = useState<GoogleCalendarEventRow[] | null>(null)
-  const [customizations, setCustomizations] = useState<Customization[] | null>(
-    null
-  )
+  const [customizations, setCustomizations] = useState<
+    CustomizationRow[] | null
+  >(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [creating, setCreating] = useState<string | null>(null)
   const [featuring, setFeaturing] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("uncustomized")
@@ -72,7 +117,7 @@ export const CustomizeEventsTool = () => {
           }
           return r.json() as Promise<{ events: GoogleCalendarEventRow[] }>
         }),
-        client.fetch<Customization[]>(CUSTOMIZATIONS_QUERY),
+        client.fetch<CustomizationRow[]>(CUSTOMIZATIONS_QUERY),
       ])
       setEvents(googleCalendarRes.events)
       setCustomizations(customizedRes ?? [])
@@ -87,14 +132,27 @@ export const CustomizeEventsTool = () => {
     load()
   }, [load])
 
+  // The list stays mounted while the editor is open next to it, so refetch on close or
+  // the row just edited stays stale.
+  const editorIsOpen = useRouterState(selectEditorIsOpen)
+  const editorWasOpen = useRef(editorIsOpen)
+
+  useEffect(() => {
+    if (editorWasOpen.current && !editorIsOpen) load()
+    editorWasOpen.current = editorIsOpen
+  }, [editorIsOpen, load])
+
   const joined: EventWithCustomization[] = useMemo(() => {
     if (!events || !customizations) return []
-    const customizationById = new Map<string, Customization>()
-    for (const c of customizations) customizationById.set(c.googleEventId, c)
-    return events.map((e) => ({
-      ...e,
-      customization: customizationById.get(e.id) ?? null,
-    }))
+    const customizationById = indexCustomizations(customizations)
+    return events.map((e) => {
+      const customization = customizationById.get(e.id) ?? null
+      return {
+        ...e,
+        customization,
+        isCustomized: customization ? customizesAnything(customization) : false,
+      }
+    })
   }, [events, customizations])
 
   const searchMatches = useMemo(() => {
@@ -120,14 +178,11 @@ export const CustomizeEventsTool = () => {
       return timeFilter === "upcoming" ? !past : past
     })
     const statusAll = timeFiltered.length
-    const statusCustomized = timeFiltered.filter((e) => e.customization).length
+    const statusCustomized = timeFiltered.filter((e) => e.isCustomized).length
 
     const statusFiltered = searchMatches.filter((e) => {
       if (statusFilter === "all") return true
-      const hasCustomization = Boolean(e.customization)
-      return statusFilter === "customized"
-        ? hasCustomization
-        : !hasCustomization
+      return statusFilter === "customized" ? e.isCustomized : !e.isCustomized
     })
     const timeAll = statusFiltered.length
     const timePast = statusFiltered.filter((e) => isEventPast(e, now)).length
@@ -152,8 +207,8 @@ export const CustomizeEventsTool = () => {
     const now = Date.now()
 
     return searchMatches.filter((e) => {
-      if (statusFilter === "uncustomized" && e.customization) return false
-      if (statusFilter === "customized" && !e.customization) return false
+      if (statusFilter === "uncustomized" && e.isCustomized) return false
+      if (statusFilter === "customized" && !e.isCustomized) return false
       if (timeFilter !== "all") {
         const past = isEventPast(e, now)
         if (timeFilter === "upcoming" && past) return false
@@ -174,52 +229,38 @@ export const CustomizeEventsTool = () => {
     setTimeFilter("upcoming")
   }, [])
 
-  /** Create a minimal customization doc and navigate to its editor. */
-  const customize = useCallback(
-    async (event: GoogleCalendarEventRow) => {
-      setCreating(event.id)
-      try {
-        const created = await client.create({
-          _type: "event",
-          googleEventId: event.id,
-          titleHint: event.title,
-        })
-        toast.push({
-          status: "success",
-          title: "Customization created",
-          description: `Opening ${event.title}…`,
-        })
-        router.navigateIntent("edit", { id: created._id, type: "event" })
-      } catch (err) {
-        toast.push({
-          status: "error",
-          title: "Could not create customization",
-          description: err instanceof Error ? err.message : "Unknown error",
-        })
-      } finally {
-        setCreating(null)
-      }
-    },
-    [client, router, toast]
-  )
+  const openEditor = useCallback(
+    (event: EventWithCustomization) => {
+      const existing = event.customization
 
-  const openCustomization = useCallback(
-    (customization: Customization) => {
-      router.navigateIntent("edit", {
-        id: customization._id,
-        type: "event",
+      router.navigate({
+        panes: [
+          [
+            {
+              id: `__edit__${existing ? existing.publishedId : crypto.randomUUID()}`,
+              params: existing
+                ? { type: EVENT_SCHEMA_TYPE }
+                : {
+                    type: EVENT_SCHEMA_TYPE,
+                    template: EVENT_CUSTOMIZATION_TEMPLATE_ID,
+                  },
+              payload: existing
+                ? undefined
+                : { googleEventId: event.id, titleHint: event.title },
+            },
+          ],
+        ],
       })
     },
     [router]
   )
 
   /**
-   * One-click featured toggle.
+   * One-click featured toggle, optimistic so the star flips instantly.
    *
-   * Creates a customization if needed (with featured=true), or patches the existing one to flip the flag.
-   * Auto-publishes so the change is live immediately. Mo draft state for this single boolean, since there's no editorial judgment to review.
-   *
-   * Local state updates optimistically so the star flips instantly.
+   * A customization created here skips drafts and goes live immediately - there's no
+   * editorial judgment to review on one boolean. An existing one is patched wherever it
+   * lives: writing to published while a draft is open gets clobbered on the next publish.
    */
   const toggleFeatured = useCallback(
     async (event: EventWithCustomization) => {
@@ -227,24 +268,20 @@ export const CustomizeEventsTool = () => {
 
       try {
         if (event.customization) {
+          const { currentId } = event.customization
           const next = !event.customization.featured
-          await client
-            .patch(event.customization._id)
-            .set({ featured: next })
-            .commit()
+          await client.patch(currentId).set({ featured: next }).commit()
 
           setCustomizations((prev) =>
             prev
               ? prev.map((c) =>
-                  c._id === event.customization!._id
-                    ? { ...c, featured: next }
-                    : c
+                  c._id === currentId ? { ...c, featured: next } : c
                 )
               : prev
           )
         } else {
           const created = await client.create({
-            _type: "event",
+            _type: EVENT_SCHEMA_TYPE,
             googleEventId: event.id,
             titleHint: event.title,
             featured: true,
@@ -342,12 +379,8 @@ export const CustomizeEventsTool = () => {
               <EventRow
                 key={e.id}
                 event={e}
-                creating={creating === e.id}
                 featuring={featuring === e.id}
-                onCustomize={() => customize(e)}
-                onOpen={() =>
-                  e.customization && openCustomization(e.customization)
-                }
+                onOpen={() => openEditor(e)}
                 onToggleFeatured={() => toggleFeatured(e)}
               />
             ))}
