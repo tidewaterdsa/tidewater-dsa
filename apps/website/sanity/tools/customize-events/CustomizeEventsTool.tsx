@@ -8,12 +8,12 @@ import {
   Spinner,
   Stack,
   Text,
-  useToast,
 } from "@sanity/ui"
 import { RefreshIcon } from "@sanity/icons"
 import { useClient } from "sanity"
 import { useRouter, useRouterState } from "sanity/router"
 import type { RouterState } from "sanity/router"
+import { toast } from "sonner"
 import { EventRow } from "./EventRow"
 import { Toolbar } from "./Toolbar"
 import { EVENT_CUSTOMIZATION_TEMPLATE_ID, EVENT_SCHEMA_TYPE } from "./constants"
@@ -47,15 +47,23 @@ const DRAFTS_PREFIX = "drafts."
 const selectEditorIsOpen = (state: RouterState): boolean =>
   Array.isArray(state.panes) && state.panes.length > 0
 
+const eventTime = (event: GoogleCalendarEventRow): number => {
+  const iso = event.startISO ?? event.endISO
+  return iso ? new Date(iso).getTime() : 0
+}
+
 const isEventPast = (event: GoogleCalendarEventRow, now: number): boolean => {
   const relevantISO = event.endISO ?? event.startISO
   if (!relevantISO) return false
   return new Date(relevantISO).getTime() < now
 }
 
+/** Editable fields only - a not-yet-saved projection fits too. */
+type CustomizationFields = Omit<CustomizationRow, "_id" | "googleEventId">
+
 // googleEventId/titleHint are bookkeeping and `featured: false` is an initial value,
 // so none of them count as customizing anything.
-const customizesAnything = (customization: Customization): boolean =>
+const customizesAnything = (customization: CustomizationFields): boolean =>
   customization.featured === true ||
   Boolean(customization.eventType) ||
   Boolean(customization.attendance) ||
@@ -99,7 +107,6 @@ export const CustomizeEventsTool = () => {
 
   const client = useClient({ apiVersion: SANITY_API_VERSION })
   const router = useRouter()
-  const toast = useToast()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -206,7 +213,7 @@ export const CustomizeEventsTool = () => {
   const filtered = useMemo(() => {
     const now = Date.now()
 
-    return searchMatches.filter((e) => {
+    const matches = searchMatches.filter((e) => {
       if (statusFilter === "uncustomized" && e.isCustomized) return false
       if (statusFilter === "customized" && !e.isCustomized) return false
       if (timeFilter !== "all") {
@@ -216,6 +223,13 @@ export const CustomizeEventsTool = () => {
       }
       return true
     })
+
+    // Past reads most-recent-first - the window opens three months back.
+    return matches.sort((a, b) =>
+      timeFilter === "past"
+        ? eventTime(b) - eventTime(a)
+        : eventTime(a) - eventTime(b)
+    )
   }, [searchMatches, statusFilter, timeFilter])
 
   const hasActiveFilters =
@@ -264,49 +278,71 @@ export const CustomizeEventsTool = () => {
    */
   const toggleFeatured = useCallback(
     async (event: EventWithCustomization) => {
+      const next = !event.customization?.featured
+      const eventLabel = `“${event.title}”`
+
+      // Per-row undo - a whole-list snapshot would wipe a concurrent toggle.
+      let rollback = () => {}
+
       setFeaturing(event.id)
 
       try {
         if (event.customization) {
           const { currentId } = event.customization
-          const next = !event.customization.featured
-          await client.patch(currentId).set({ featured: next }).commit()
 
-          setCustomizations((prev) =>
-            prev
-              ? prev.map((c) =>
-                  c._id === currentId ? { ...c, featured: next } : c
-                )
-              : prev
-          )
+          const setFeatured = (value: boolean) =>
+            setCustomizations((prev) =>
+              prev
+                ? prev.map((c) =>
+                    c._id === currentId ? { ...c, featured: value } : c
+                  )
+                : prev
+            )
+
+          setFeatured(next)
+          rollback = () => setFeatured(!next)
+
+          await client.patch(currentId).set({ featured: next }).commit()
         } else {
-          const created = await client.create({
-            _type: EVENT_SCHEMA_TYPE,
-            googleEventId: event.id,
-            titleHint: event.title,
-            featured: true,
-          })
+          // Mint the id up front so the optimistic row matches what the server stores.
+          const newId = crypto.randomUUID()
 
           setCustomizations((prev) => [
             ...(prev ?? []),
-            {
-              _id: created._id,
-              googleEventId: event.id,
-              featured: true,
-            },
+            { _id: newId, googleEventId: event.id, featured: next },
           ])
+          rollback = () =>
+            setCustomizations((prev) =>
+              prev ? prev.filter((c) => c._id !== newId) : prev
+            )
+
+          await client.create({
+            _id: newId,
+            _type: EVENT_SCHEMA_TYPE,
+            googleEventId: event.id,
+            titleHint: event.title,
+            featured: next,
+          })
         }
+
+        toast.success(
+          next
+            ? `${eventLabel} has been set as featured`
+            : `${eventLabel} has been set as not featured`
+        )
       } catch (err) {
-        toast.push({
-          status: "error",
-          title: "Could not update featured status",
-          description: err instanceof Error ? err.message : "Unknown error",
-        })
+        rollback()
+        toast.error(
+          next
+            ? `Error setting ${eventLabel} as featured`
+            : `Error unsetting ${eventLabel} as featured`,
+          { description: err instanceof Error ? err.message : "Unknown error" }
+        )
       } finally {
         setFeaturing(null)
       }
     },
-    [client, toast]
+    [client]
   )
 
   return (
@@ -327,6 +363,7 @@ export const CustomizeEventsTool = () => {
             text="Refresh"
             onClick={load}
             disabled={loading}
+            loading={loading}
           />
         </Flex>
 

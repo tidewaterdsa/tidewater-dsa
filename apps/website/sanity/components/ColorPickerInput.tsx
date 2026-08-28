@@ -36,6 +36,7 @@ export const ColorPickerInput = ({
   value,
   onChange,
   readOnly,
+  elementProps,
 }: StringInputProps) => {
   const currentSlug = value as EventTypeColor | undefined
   const isValid = currentSlug && currentSlug in EVENT_COLORS
@@ -47,41 +48,42 @@ export const ColorPickerInput = ({
     onChange(next ? set(next) : unset())
   }
 
-  const trigger = (
-    <Card
-      padding={3}
-      radius={2}
-      border
-      tone="default"
-      style={{
-        cursor: readOnly ? "not-allowed" : "pointer",
-        opacity: readOnly ? 0.6 : 1,
-      }}
-    >
-      <Flex align="center" justify="space-between" gap={2}>
-        <Flex align="center" gap={2} flex={1}>
-          {selectedHex && selectedLabel ? (
-            <>
-              <Swatch hex={selectedHex} />
-              <Text size={2}>{selectedLabel}</Text>
-            </>
-          ) : (
-            <Text size={2} muted>
-              Select a color…
-            </Text>
-          )}
-        </Flex>
-        <Text size={2} muted>
-          <ChevronDownIcon />
-        </Text>
-      </Flex>
-    </Card>
+  const summary = selectedHex ? (
+    <>
+      <Swatch hex={selectedHex} />
+      <Text size={2}>{selectedLabel}</Text>
+    </>
+  ) : (
+    <Text size={2} muted>
+      Select a color…
+    </Text>
   )
+
+  if (readOnly) {
+    return (
+      <Card padding={3} radius={2} border tone="transparent">
+        <Flex align="center" gap={2} style={{ opacity: 0.6 }}>
+          {summary}
+        </Flex>
+      </Card>
+    )
+  }
 
   return (
     <MenuButton
-      id="event-type-color-picker"
-      button={readOnly ? <Button mode="bleed">{trigger}</Button> : trigger}
+      id={elementProps.id}
+      button={
+        <Button mode="ghost" padding={3} style={{ width: "100%" }}>
+          <Flex align="center" justify="space-between" gap={2}>
+            <Flex align="center" gap={2} flex={1}>
+              {summary}
+            </Flex>
+            <Text size={2} muted>
+              <ChevronDownIcon />
+            </Text>
+          </Flex>
+        </Button>
+      }
       popover={{
         portal: true,
         placement: "bottom-start",

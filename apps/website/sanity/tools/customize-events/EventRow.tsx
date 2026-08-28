@@ -1,9 +1,8 @@
 import { Box, Button, Card, Flex, Stack, Text } from "@sanity/ui"
-import { EditIcon, StarIcon } from "@sanity/icons"
+import { EditIcon, LaunchIcon, StarIcon } from "@sanity/icons"
 import type { EventWithCustomization, GoogleCalendarEventRow } from "./types"
+import { DSA_RED } from "../../theme"
 import { formatEventMeta } from "@/lib/format"
-
-const TDSA_RED = "#ff0101"
 
 /** Format the date/time + location line shown under each event's title. */
 const formatMetaLine = (event: GoogleCalendarEventRow): string => {
@@ -42,7 +41,7 @@ export const EventRow = ({
       tone={customized ? "default" : "transparent"}
       style={{
         borderLeft: customized
-          ? `3px solid ${TDSA_RED}`
+          ? `3px solid ${DSA_RED}`
           : "3px solid rgba(0, 0, 0, 0.08)",
       }}
     >
@@ -58,11 +57,6 @@ export const EventRow = ({
                   <Text size={0}>{eventType}</Text>
                 </Card>
               )}
-              {featured && (
-                <Text size={1} style={{ color: "#d97706" }}>
-                  <StarIcon /> Featured
-                </Text>
-              )}
             </Flex>
             <Text size={1} muted>
               {formatMetaLine(event)}
@@ -72,13 +66,28 @@ export const EventRow = ({
           <Flex gap={2} align="center" style={{ flexShrink: 0 }}>
             <Button
               icon={StarIcon}
+              text={featured ? "Featured" : "Feature"}
               mode={featured ? "default" : "ghost"}
-              tone={featured ? "caution" : "default"}
-              title={featured ? "Unfeature this event" : "Feature this event"}
+              tone="caution"
+              title={
+                featured
+                  ? "Remove from Featured Events"
+                  : "Show in Featured Events"
+              }
               onClick={onToggleFeatured}
               disabled={featuring}
-              loading={featuring}
             />
+            {event.htmlLink && (
+              <Button
+                icon={LaunchIcon}
+                mode="ghost"
+                title="Open in Google Calendar"
+                // Sanity UI's Button has no `as` prop, so this can't be an anchor.
+                onClick={() =>
+                  window.open(event.htmlLink, "_blank", "noopener,noreferrer")
+                }
+              />
+            )}
             {customized ? (
               <Button
                 icon={EditIcon}
@@ -89,12 +98,9 @@ export const EventRow = ({
             ) : (
               <Button
                 text="Customize"
+                mode="default"
+                tone="primary"
                 onClick={onOpen}
-                style={{
-                  backgroundColor: TDSA_RED,
-                  color: "white",
-                  border: "none",
-                }}
               />
             )}
           </Flex>

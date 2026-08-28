@@ -15,6 +15,7 @@ export const WorkingGroupInput = (props: StringInputProps) => (
     labels={{
       taxonomyName: "working groups",
       settingsDocName: "Working Groups",
+      settingsDocType: "workingGroups",
     }}
   />
 )

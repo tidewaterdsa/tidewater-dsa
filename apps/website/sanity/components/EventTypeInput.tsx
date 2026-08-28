@@ -15,6 +15,7 @@ export const EventTypeInput = (props: StringInputProps) => (
     labels={{
       taxonomyName: "event types",
       settingsDocName: "Event Types",
+      settingsDocType: "eventTypes",
     }}
   />
 )

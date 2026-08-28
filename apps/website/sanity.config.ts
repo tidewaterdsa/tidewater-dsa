@@ -4,6 +4,8 @@ import { visionTool } from "@sanity/vision"
 import { presentationTool, defineLocations } from "sanity/presentation"
 import { CalendarIcon } from "@sanity/icons"
 import { schemaTypes } from "./sanity/schemas"
+import { DSA_RED } from "./sanity/theme"
+import { StudioLayout } from "./sanity/components/StudioLayout"
 import { structure, SINGLETON_TYPES } from "./sanity/structure"
 import { customizeEventsStructure } from "./sanity/tools/customize-events/structure"
 import {
@@ -22,14 +24,17 @@ const dataset =
     ? process.env.PUBLIC_SANITY_DATASET
     : import.meta.env.PUBLIC_SANITY_DATASET
 
-const dsaRed = "#ec1f27"
-
 const dsaTheme = buildLegacyTheme({
-  "--brand-primary": dsaRed,
-  "--focus-color": dsaRed,
-  "--state-info-color": dsaRed,
-  "--default-button-primary-color": dsaRed,
+  "--brand-primary": DSA_RED,
+  "--focus-color": DSA_RED,
+  "--state-info-color": DSA_RED,
+  "--default-button-primary-color": DSA_RED,
 })
+
+const isDev =
+  typeof import.meta.env !== "undefined"
+    ? import.meta.env.DEV
+    : process.env.NODE_ENV !== "production"
 
 export default defineConfig({
   name: "tidewater-dsa",
@@ -88,7 +93,7 @@ export default defineConfig({
       icon: CalendarIcon,
       structure: customizeEventsStructure,
     }),
-    visionTool(),
+    ...(isDev ? [visionTool()] : []),
   ],
   schema: {
     types: schemaTypes,
@@ -109,6 +114,11 @@ export default defineConfig({
         }),
       },
     ],
+  },
+  studio: {
+    components: {
+      layout: StudioLayout,
+    },
   },
   document: {
     actions: (input, context) => {

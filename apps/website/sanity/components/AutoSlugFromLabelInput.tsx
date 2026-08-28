@@ -44,8 +44,7 @@ export const AutoSlugFromLabelInput = ({
 
   const current = value?.current ?? ""
 
-  // Track whether the admin has manually edited the slug. If they have, stop auto-filling.
-  const manuallyEditedRef = useRef(false)
+  const tracksLabelRef = useRef(!current || current === slugify(label ?? ""))
 
   const applySlug = useCallback(
     (nextCurrent: string) => {
@@ -60,7 +59,7 @@ export const AutoSlugFromLabelInput = ({
 
   // Auto-fill when the label changes, unless the admin has taken over.
   useEffect(() => {
-    if (manuallyEditedRef.current) return
+    if (!tracksLabelRef.current) return
     if (!label) return
 
     const nextSlug = slugify(label)
@@ -71,12 +70,12 @@ export const AutoSlugFromLabelInput = ({
   }, [label, current, applySlug])
 
   const handleManualChange = (e: ChangeEvent<HTMLInputElement>) => {
-    manuallyEditedRef.current = true
+    tracksLabelRef.current = false
     applySlug(slugify(e.currentTarget.value))
   }
 
   const handleUnlock = () => {
-    manuallyEditedRef.current = true
+    tracksLabelRef.current = false
     setUnlocked(true)
   }
 

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { Flex, Stack, Text } from "@sanity/ui"
+import { Button, Flex, Stack } from "@sanity/ui"
 import { ArrowLeftIcon } from "@sanity/icons"
 import { useWorkspace } from "sanity"
 import { useRouter } from "sanity/router"
@@ -23,35 +23,15 @@ export const EventFormHeader = (props: InputProps) => {
 
   return (
     <Stack space={4}>
-      <Flex align="center" gap={2}>
-        <a
-          onClick={(e) => {
-            e.preventDefault()
-            goBack()
-          }}
-          href={customizeToolPath}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            color: "var(--card-link-color, #2276fc)",
-            textDecoration: "none",
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.textDecoration = "underline"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.textDecoration = "none"
-          }}
-        >
-          <ArrowLeftIcon />
-          <Text size={1} style={{ color: "inherit", fontWeight: 500 }}>
-            Back to Customize Events
-          </Text>
-        </a>
+      <Flex align="center">
+        <Button
+          mode="bleed"
+          icon={ArrowLeftIcon}
+          text="Back to Customize Events"
+          fontSize={1}
+          padding={2}
+          onClick={goBack}
+        />
       </Flex>
 
       {/* Studio renders the default form below the header */}

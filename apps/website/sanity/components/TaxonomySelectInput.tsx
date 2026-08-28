@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { useClient, set, unset, type StringInputProps } from "sanity"
-import { Select, Stack, Text } from "@sanity/ui"
+import { useIntentLink } from "sanity/router"
+import { Button, Card, Flex, Select, Stack, Text } from "@sanity/ui"
+import { ArrowRightIcon, WarningOutlineIcon } from "@sanity/icons"
 import { SANITY_API_VERSION } from "@/lib/sanity-config"
 
 interface TaxonomyEntry {
@@ -24,6 +26,8 @@ interface TaxonomyLabels {
    * e.g. "Event Types", "Working Groups".
    */
   settingsDocName: string
+  /** Schema type of the singleton holding the entries, for the empty state's link. */
+  settingsDocType: string
 }
 
 interface TaxonomySelectInputProps extends StringInputProps {
@@ -50,6 +54,12 @@ export const TaxonomySelectInput = ({
   const [error, setError] = useState<string | null>(null)
 
   const client = useClient({ apiVersion: SANITY_API_VERSION })
+
+  // SINGLETON_IDS gives each singleton an id matching its type.
+  const { onClick: openSettingsDoc } = useIntentLink({
+    intent: "edit",
+    params: { id: labels.settingsDocType, type: labels.settingsDocType },
+  })
 
   useEffect(() => {
     let active = true
@@ -93,11 +103,19 @@ export const TaxonomySelectInput = ({
 
   if (error) {
     return (
-      <Stack space={2}>
-        <Text size={1} muted>
-          Could not load {labels.taxonomyName}: {error}
-        </Text>
-      </Stack>
+      <Card padding={3} radius={2} tone="critical" border>
+        <Flex align="flex-start" gap={3}>
+          <Text size={1}>
+            <WarningOutlineIcon />
+          </Text>
+          <Stack space={2} flex={1}>
+            <Text size={1} weight="medium">
+              Could not load {labels.taxonomyName}
+            </Text>
+            <Text size={1}>{error}</Text>
+          </Stack>
+        </Flex>
+      </Card>
     )
   }
 
@@ -111,13 +129,22 @@ export const TaxonomySelectInput = ({
 
   if (options.length === 0) {
     return (
-      <Stack space={2}>
-        <Text size={1} muted>
-          No {labels.taxonomyName} defined yet. Create entries in the{" "}
-          <strong>{labels.settingsDocName}</strong> document under Settings to
-          enable this dropdown.
-        </Text>
-      </Stack>
+      <Card padding={3} radius={2} tone="caution" border>
+        <Stack space={3}>
+          <Text size={1}>
+            No {labels.taxonomyName} defined yet. Create entries in{" "}
+            <strong>{labels.settingsDocName}</strong> to enable this dropdown.
+          </Text>
+          <Flex>
+            <Button
+              mode="ghost"
+              iconRight={ArrowRightIcon}
+              text={`Open ${labels.settingsDocName}`}
+              onClick={openSettingsDoc}
+            />
+          </Flex>
+        </Stack>
+      </Card>
     )
   }
 
