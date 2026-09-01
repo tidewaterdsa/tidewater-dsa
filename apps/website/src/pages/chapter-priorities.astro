@@ -105,15 +105,17 @@ const pageTitle = data?.title ?? "Chapter Priorities"
                   )}
 
                   {showCta && priority.ctaLink && (
-                    <a
-                      href={priority.ctaLink}
-                      target={ctaExternal ? "_blank" : undefined}
-                      rel={ctaExternal ? "noreferrer" : undefined}
-                      class="mono-eyebrow mt-6 inline-flex items-center gap-1.5 self-start border-b-2 border-primary pb-1 font-semibold whitespace-nowrap text-primary transition-colors hover:border-primary-deep hover:text-primary-deep"
-                    >
-                      {priority.ctaText}
-                      <ArrowRightIcon className="size-3" />
-                    </a>
+                    <div class="mt-6 self-start">
+                      <a
+                        href={priority.ctaLink}
+                        target={ctaExternal ? "_blank" : undefined}
+                        rel={ctaExternal ? "noreferrer" : undefined}
+                        class="mono-eyebrow wrap-break-words inline border-b-2 border-primary pb-1 leading-7 font-semibold text-primary transition-colors hover:border-primary-deep hover:text-primary-deep"
+                      >
+                        {priority.ctaText}
+                        <ArrowRightIcon className="ml-1.5 inline size-3 align-middle" />
+                      </a>
+                    </div>
                   )}
                 </div>
               </article>

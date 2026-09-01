@@ -73,10 +73,10 @@ const showSignup = pageData?.showSignup !== false
                         href={way.ctaLink}
                         target={ctaExternal ? "_blank" : undefined}
                         rel={ctaExternal ? "noreferrer" : undefined}
-                        class="mono-eyebrow inline-flex items-center gap-1.5 border-b-2 border-primary pb-1 font-semibold whitespace-nowrap text-primary transition-colors hover:border-primary-deep hover:text-primary-deep"
+                        class="mono-eyebrow wrap-break-words inline border-b-2 border-primary pb-1 leading-7 font-semibold text-primary transition-colors hover:border-primary-deep hover:text-primary-deep"
                       >
                         {way.ctaText}
-                        <ArrowRightIcon className="size-3" />
+                        <ArrowRightIcon className="ml-1.5 inline size-3 align-middle" />
                       </a>
                     </div>
                   )}
