@@ -55,7 +55,7 @@ export const TaxonomySelectInput = ({
 
   const client = useClient({ apiVersion: SANITY_API_VERSION })
 
-  // SINGLETON_IDS gives each singleton an id matching its type.
+  // Settings singletons use their type name as the document id.
   const { onClick: openSettingsDoc } = useIntentLink({
     intent: "edit",
     params: { id: labels.settingsDocType, type: labels.settingsDocType },

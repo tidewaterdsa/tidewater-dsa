@@ -6,6 +6,7 @@ import { CalendarIcon } from "@sanity/icons"
 import { schemaTypes } from "./sanity/schemas"
 import { DSA_RED } from "./sanity/theme"
 import { StudioLayout } from "./sanity/components/StudioLayout"
+import { StudioFormInput } from "./sanity/components/publish-reminder/StudioFormInput"
 import { structure, SINGLETON_TYPES } from "./sanity/structure"
 import { customizeEventsStructure } from "./sanity/tools/customize-events/structure"
 import {
@@ -118,6 +119,11 @@ export default defineConfig({
   studio: {
     components: {
       layout: StudioLayout,
+    },
+  },
+  form: {
+    components: {
+      input: StudioFormInput,
     },
   },
   document: {
