@@ -37,7 +37,6 @@ apps/website/
 │   └── middleware.ts      # noindex + security headers on every SSR route
 ├── astro.config.mjs
 ├── wrangler.jsonc         # Workers config (CACHE + ASSETS bindings, env vars)
-├── DOMAIN-CUTOVER.md      # Checklist for moving to the custom domain
 └── sanity.config.ts       # Embedded Studio config with Presentation tool
 ```
 
@@ -99,8 +98,8 @@ which is how staging points at a different dataset than production. See
 The Sanity project must allow your deployment URLs as CORS origins. Go to `sanity.io/manage` → API → CORS origins and add:
 
 - `http://localhost:4321` (local development)
-- The production Worker URL or custom domain
-- The staging Worker URL
+- `https://tidewaterdsa.org` (production)
+- `https://staging.tidewaterdsa.org` (staging)
 
 Make sure **Allow credentials** is checked for each origin.
 
@@ -562,8 +561,6 @@ Two things that will bite:
   non-production branch run `wrangler versions upload` instead of deploying, so
   the site wouldn't change.
 
-For moving to a custom domain, see [DOMAIN-CUTOVER.md](./DOMAIN-CUTOVER.md).
-
 ### Why Cloudflare Workers
 
 The Cloudflare adapter gives us SSR with effectively zero hosting cost — the free tier covers 100,000 requests per day, far more than a chapter site will ever need. SSR is required because the Sanity Presentation tool needs server rendering to display draft content with stega-encoded overlays.
@@ -581,6 +578,7 @@ variables](#build-time-vs-runtime-variables)).
 - `PUBLIC_SANITY_PROJECT_ID`
 - `PUBLIC_SANITY_DATASET` — `production` or `staging`
 - `PUBLIC_SITE_URL` — the deployed origin, no trailing slash
+  (`https://tidewaterdsa.org` in production)
 - `PUBLIC_SANITY_VISUAL_EDITING_ENABLED` — `false` in production
 - `SANITY_API_READ_TOKEN` — **staging only** (see below)
 - `NODE_OPTIONS` — build memory, if the build runs out
