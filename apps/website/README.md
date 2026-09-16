@@ -546,14 +546,15 @@ declined. Miniflare is more permissive than the real runtime, so this passes
 locally and fails once deployed — `X-Edge-Cache: MISS` on every single request
 is the symptom.
 
-Sanity queries run through Sanity's CDN in production (`useCdn:
-!visualEditingEnabled` in `src/lib/load-query.ts`). Because `caches.default` is
-per-colo, edge misses are frequent enough that uncached queries would add up
-against the project's API quota. Sanity purges its own CDN on publish, so a
-re-render triggered by our purge can only race it for about a second.
+Sanity queries run with `useCdn: false` (`src/lib/load-query.ts`), and this is
+load-bearing. Publishing purges our edge cache, and the re-render that purge
+triggers lands exactly when Sanity's own CDN is most likely to still be stale —
+the two are correlated, not independent. One unlucky render caches that stale
+content for the full edge TTL, with the purge already spent, so nothing fixes it
+until the TTL expires.
 
-It is always off when visual editing is on: draft content is fetched with a
-token, and the CDN cannot serve authenticated responses.
+Turning the CDN on in production to save API quota looks reasonable and breaks
+publish-to-live. It has been tried; don't.
 
 **`caches.default` is per-colo.** Each Cloudflare data center keeps its own
 copy, so an occasional `MISS` among `HIT`s is normal — that request landed

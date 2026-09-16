@@ -29,11 +29,10 @@ export async function loadQuery<QueryResponse>({
       perspective,
       resultSourceMap: visualEditingEnabled ? "withKeyArraySelector" : false,
       stega: visualEditingEnabled,
-      // CDN in production to keep uncached API requests off the project quota;
-      // it self-purges on publish, so a re-render can only race it for about a
-      // second. Never with visual editing on — draft content is fetched with a
-      // token and the CDN can't serve authenticated responses.
-      useCdn: !visualEditingEnabled,
+      // Uncached: publishing purges the edge, and a re-render that raced
+      // Sanity's own CDN could re-cache stale content for the full TTL.
+      // The edge cache means misses are rare, so this costs few API calls.
+      useCdn: false,
       ...(visualEditingEnabled ? { token } : {}),
     }
   )
