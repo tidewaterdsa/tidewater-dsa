@@ -1,5 +1,6 @@
 import { defineField, defineType } from "sanity"
 import { defineRichTextBody } from "./richTextFields"
+import { LinkInput } from "../components/link/LinkInput"
 
 export const priorityType = defineType({
   name: "priority",
@@ -34,8 +35,7 @@ export const priorityType = defineType({
       name: "image",
       title: "Image",
       type: "image",
-      description:
-        "Photo or illustration representing this priority.",
+      description: "Photo or illustration representing this priority.",
       options: { hotspot: true },
       validation: (Rule) => Rule.required(),
     }),
@@ -50,6 +50,7 @@ export const priorityType = defineType({
       name: "ctaLink",
       title: "Call-To-Action Link",
       type: "url",
+      components: { input: LinkInput },
       description:
         "Optional. Where the CTA points, can be internal (/events) or external (action network URL). External links open in a new tab automatically.",
       validation: (Rule) =>

@@ -1,5 +1,6 @@
 import { defineField, defineType } from "sanity"
 import { defineRichTextBody } from "./richTextFields"
+import { LinkInput } from "../components/link/LinkInput"
 
 export const homePageType = defineType({
   name: "homePage",
@@ -53,6 +54,7 @@ export const homePageType = defineType({
       type: "url",
       description: "Where the primary button links to (e.g. /get-involved)",
       group: "hero",
+      components: { input: LinkInput },
       validation: (Rule) =>
         Rule.uri({ allowRelative: true, scheme: ["http", "https", "mailto"] }),
     }),
@@ -70,6 +72,7 @@ export const homePageType = defineType({
       type: "url",
       description: "Where the secondary button links to (e.g. /events).",
       group: "hero",
+      components: { input: LinkInput },
       validation: (Rule) =>
         Rule.uri({ allowRelative: true, scheme: ["http", "https", "mailto"] }),
     }),

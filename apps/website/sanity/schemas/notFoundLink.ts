@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity"
+import { LinkInput } from "../components/link/LinkInput"
 
 export const notFoundLinkType = defineType({
   name: "notFoundLink",
@@ -23,12 +24,12 @@ export const notFoundLinkType = defineType({
       name: "href",
       title: "Path or URL",
       type: "string",
+      components: { input: LinkInput },
       description:
         "Site path starting with / (e.g. /events), or a full https:// URL.",
       validation: (Rule) =>
         Rule.required().custom((value) =>
-          typeof value === "string" &&
-          (value.startsWith("/") || value.startsWith("https://"))
+          typeof value === "string" && /^(\/|https:\/\/|mailto:)/.test(value)
             ? true
             : "Must start with / or https://"
         ),

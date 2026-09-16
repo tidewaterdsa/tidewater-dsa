@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity"
+import { LinkInput } from "../components/link/LinkInput"
 
 export const getInvolvedWayType = defineType({
   name: "getInvolvedWay",
@@ -18,8 +19,7 @@ export const getInvolvedWayType = defineType({
       title: "Description",
       type: "text",
       rows: 3,
-      description:
-        "A sentence or two explaining this path.",
+      description: "A sentence or two explaining this path.",
       validation: (Rule) => Rule.required().max(280),
     }),
     defineField({
@@ -33,6 +33,7 @@ export const getInvolvedWayType = defineType({
       name: "ctaLink",
       title: "Button Link",
       type: "string",
+      components: { input: LinkInput },
       description:
         "Where the button goes. Internal paths ('/events') stay in the same tab; external links (https://, mailto:) open in a new tab automatically.",
     }),

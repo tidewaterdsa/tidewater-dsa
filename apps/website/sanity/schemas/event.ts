@@ -2,6 +2,7 @@ import { defineField, defineType } from "sanity"
 import { EventTypeInput } from "../components/EventTypeInput"
 import { WorkingGroupInput } from "../components/WorkingGroupInput"
 import { EventFormHeader } from "../components/EventFormHeader"
+import { ExternalLinkInput } from "../components/link/LinkInput"
 
 export const eventType = defineType({
   name: "event",
@@ -85,6 +86,7 @@ export const eventType = defineType({
       name: "rsvpLink",
       title: "RSVP / Action Network URL",
       type: "url",
+      components: { input: ExternalLinkInput },
       description:
         "Paste the full Action Network URL (or any RSVP link). The event detail dialog shows an RSVP button that links here. Leave blank to auto-extract from the Google Calendar event description (most events have their AN link there already).",
     }),

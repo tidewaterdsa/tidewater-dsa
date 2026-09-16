@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity"
+import { ExternalLinkInput, LinkInput } from "../components/link/LinkInput"
 
 export const siteSettingsType = defineType({
   name: "siteSettings",
@@ -79,6 +80,7 @@ export const siteSettingsType = defineType({
       name: "callToActionLink",
       title: "Header Call-To-Action Button Link",
       type: "url",
+      components: { input: LinkInput },
       description:
         "Where the navbar button links to (e.g. a signup form, donation link)",
       group: "cta",
@@ -135,6 +137,7 @@ export const siteSettingsType = defineType({
       name: "nextMeetingLinkOverride",
       title: "Next Meeting Link Override",
       type: "url",
+      components: { input: LinkInput },
       description:
         "Optional. Where the ribbon's right side links to. Defaults to the matched event's RSVP link, or /events if there's no RSVP.",
       group: "ribbon",
@@ -171,6 +174,7 @@ export const siteSettingsType = defineType({
         "Paste the URL of your Action Network form exactly as it appears in your browser when you visit the form page (e.g. https://actionnetwork.org/forms/your-form-slug). The site handles the rest, you don't need an 'embed' or 'widget' URL.",
       type: "url",
       group: "signup",
+      components: { input: ExternalLinkInput },
       validation: (Rule) =>
         Rule.uri({ allowRelative: false, scheme: ["https"] }).custom(
           (value) => {
@@ -249,6 +253,7 @@ export const siteSettingsType = defineType({
               name: "url",
               type: "url",
               title: "URL",
+              components: { input: ExternalLinkInput },
               validation: (Rule) => Rule.required(),
             },
           ],
@@ -365,6 +370,7 @@ export const siteSettingsType = defineType({
                       name: "href",
                       type: "string",
                       title: "URL",
+                      components: { input: LinkInput },
                       description:
                         "Path (like '/about-us') or full URL (like 'https://...').",
                       validation: (Rule) => Rule.required(),

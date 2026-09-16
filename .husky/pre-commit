@@ -1,17 +1,17 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "Running Sanity type generator..."
 CI=true npm run typegen
 
-if ! git --no-pager diff --exit-code apps/website/sanity/types.ts > /dev/null; then
+GENERATED="apps/website/sanity/types.ts apps/website/sanity/generated/routes.ts"
+
+if ! git --no-pager diff --exit-code $GENERATED > /dev/null; then
   RED='\033[0;31m'
   NC='\033[0m'
 
   echo -e ""
-  echo -e "${RED}ERROR: Sanity types are out of sync with your schemas.${NC}"
-  echo -e "${RED}The type generator just updated apps/website/sanity/types.ts.${NC}"
-  echo -e "${RED}Please stage this file (git add apps/website/sanity/types.ts) and commit again.${NC}"
+  echo -e "${RED}ERROR: Generated files are out of sync with your schemas and routes.${NC}"
+  echo -e "${RED}The generators just updated:${NC}"
+  git --no-pager diff --name-only $GENERATED | sed 's/^/  /'
+  echo -e "${RED}Stage them (git add <file>) and commit again.${NC}"
   echo -e ""
   exit 1
 fi

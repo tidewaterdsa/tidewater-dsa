@@ -1,5 +1,6 @@
 import { defineField } from "sanity"
 import type { FieldDefinition, Rule } from "sanity"
+import { LinkInput } from "../components/link/LinkInput"
 
 interface RichTextBodyOptions {
   name?: string
@@ -48,6 +49,7 @@ export const defineRichTextBody = ({
               name: "href",
               type: "url",
               title: "URL",
+              components: { input: LinkInput },
               validation: (rule: Rule) =>
                 rule.uri({
                   allowRelative: true,

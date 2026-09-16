@@ -24,6 +24,11 @@ export default [
   },
   ...eslintPluginAstro.configs.recommended,
   {
+    // Build-time scripts run in Node, not the browser.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ["**/*.{ts,tsx,astro}"],
     languageOptions: {
       ecmaVersion: 2020,
