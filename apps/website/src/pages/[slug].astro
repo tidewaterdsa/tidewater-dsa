@@ -4,6 +4,7 @@ import Layout from "@/layouts/main.astro"
 import { loadQuery } from "@/lib/load-query"
 import { PAGE_BY_SLUG_QUERY } from "@/sanity/queries"
 import type { PAGE_BY_SLUG_QUERY_RESULT } from "@/sanity/types"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
 
 const { slug } = Astro.params
 if (!slug) return Astro.rewrite("/404")
@@ -14,6 +15,8 @@ const { data } = await loadQuery<PAGE_BY_SLUG_QUERY_RESULT>({
 })
 
 if (!data.page) return Astro.rewrite("/404")
+
+setPageCacheHeaders(Astro.response.headers)
 
 const { page } = data
 ---

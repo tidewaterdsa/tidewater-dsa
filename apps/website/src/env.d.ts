@@ -1,6 +1,17 @@
 /// <reference types="astro/client" />
 /// <reference types="@sanity/astro/module" />
 
+/**
+ * Cloudflare's per-colo cache, used for edge caching in `middleware.ts`.
+ * Declared here because the DOM lib's CacheStorage has no `default`.
+ */
+interface CacheStorage {
+  readonly default: {
+    match: (request: Request) => Promise<Response | undefined>
+    put: (request: Request, response: Response) => Promise<void>
+  }
+}
+
 /** Cloudflare Workers KV binding type. */
 type KVNamespace = import("@cloudflare/workers-types").KVNamespace
 
@@ -16,6 +27,11 @@ interface CloudflareEnv {
   USE_MOCK_DATA?: string
   PUBLIC_SANITY_VISUAL_EDITING_ENABLED?: string
   SANITY_API_READ_TOKEN?: string
+  /** Shared secret the Sanity revalidation webhook must present. */
+  SANITY_REVALIDATE_SECRET?: string
+  CF_ZONE_ID?: string
+  /** Scoped to Cache Purge only. */
+  CF_PURGE_TOKEN?: string
 }
 
 /** The Astro.locals.runtime shape provided by @astrojs/cloudflare. */

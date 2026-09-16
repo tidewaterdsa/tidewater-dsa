@@ -8,6 +8,9 @@ import { GET_INVOLVED_PAGE_QUERY } from "@/sanity/queries"
 import type { GET_INVOLVED_PAGE_QUERY_RESULT } from "@/sanity/types"
 import { isExternalHref } from "@/lib/url"
 import { ArrowRightIcon } from "lucide-react"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
+
+setPageCacheHeaders(Astro.response.headers)
 
 const { data } = await loadQuery<GET_INVOLVED_PAGE_QUERY_RESULT>({
   query: GET_INVOLVED_PAGE_QUERY,

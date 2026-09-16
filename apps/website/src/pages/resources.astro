@@ -17,11 +17,9 @@ import {
 import type { Resource, ResourcesMeta } from "@/types"
 import "@/styles/print-resources.css"
 import { stegaClean } from "@sanity/client/stega"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, max-age=300, stale-while-revalidate=3600"
-)
+setPageCacheHeaders(Astro.response.headers, { edgeMaxAge: 300 })
 
 const { data } = await loadQuery<RESOURCES_PAGE_QUERY_RESULT>({
   query: RESOURCES_PAGE_QUERY,

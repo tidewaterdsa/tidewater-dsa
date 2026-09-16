@@ -10,11 +10,9 @@ import { splitHighlight } from "@/lib/format-headline"
 import { cn } from "@tidewater-dsa/ui/lib/utils"
 import { ArrowRightIcon } from "lucide-react"
 import { isExternalHref } from "@/lib/url"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, max-age=300, stale-while-revalidate=600"
-)
+setPageCacheHeaders(Astro.response.headers)
 
 const { data } = await loadQuery<CHAPTER_PRIORITIES_PAGE_QUERY_RESULT>({
   query: CHAPTER_PRIORITIES_PAGE_QUERY,

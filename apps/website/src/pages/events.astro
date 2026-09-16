@@ -17,11 +17,9 @@ import type {
 } from "@/sanity/types"
 import type { SerializedEvent } from "@/types"
 import { loadQuery } from "@/lib/load-query"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, max-age=60, stale-while-revalidate=600"
-)
+setPageCacheHeaders(Astro.response.headers, { edgeMaxAge: 300 })
 
 // Fetch window: 1 month back, 4 months forward
 const now = new Date()

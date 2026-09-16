@@ -17,11 +17,9 @@ import { Card, CardContent } from "@tidewater-dsa/ui/components/card"
 import { cn } from "@tidewater-dsa/ui/lib/utils"
 import RichText from "@/components/rich-text/RichText.astro"
 import { stegaClean } from "@sanity/client/stega"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, max-age=60, stale-while-revalidate=600"
-)
+setPageCacheHeaders(Astro.response.headers, { edgeMaxAge: 300 })
 
 const [{ data: home }, { data: eventTypesData }] = await Promise.all([
   loadQuery<HOME_PAGE_QUERY_RESULT>({ query: HOME_PAGE_QUERY }),

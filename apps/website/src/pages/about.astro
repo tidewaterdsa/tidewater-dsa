@@ -6,6 +6,9 @@ import RichText from "@/components/rich-text/RichText.astro"
 import { loadQuery } from "@/lib/load-query"
 import { ABOUT_PAGE_QUERY } from "@/sanity/queries"
 import type { ABOUT_PAGE_QUERY_RESULT } from "@/sanity/types"
+import { setPageCacheHeaders } from "@/lib/cache-headers"
+
+setPageCacheHeaders(Astro.response.headers)
 
 const { data } = await loadQuery<ABOUT_PAGE_QUERY_RESULT>({
   query: ABOUT_PAGE_QUERY,

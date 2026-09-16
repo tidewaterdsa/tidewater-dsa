@@ -1,14 +1,19 @@
 import { defineMiddleware } from "astro:middleware"
 
 /**
- * Response headers applied to every server-rendered route.
+ * Response headers and edge caching for every server-rendered route.
  *
  * Static assets are served by the ASSETS binding before the Worker runs, so
  * these cover pages and API routes only.
  */
-export const onRequest = defineMiddleware(async (context, next) => {
-  const response = await next()
 
+/**
+ * Never cached: the Studio renders per-editor state, and API routes include the
+ * purge webhook, which has to reach the Worker every time.
+ */
+const UNCACHEABLE_PREFIXES = ["/admin", "/api"]
+
+const applySecurityHeaders = (response: Response, isProduction: boolean) => {
   /**
    * Keep every non-production deployment out of search results.
    *
@@ -20,7 +25,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
    * Anything not explicitly production is noindex, so a missing
    * ENVIRONMENT var cannot accidentally expose a preview to crawlers.
    */
-  if (context.locals.runtime?.env.ENVIRONMENT !== "production") {
+  if (!isProduction) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow")
   }
 
@@ -31,6 +36,56 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // signed-in editor. 'self' rather than 'none': Sanity presentation mode
   // frames site pages from the Studio, which is same-origin (studioUrl: "/admin").
   response.headers.set("Content-Security-Policy", "frame-ancestors 'self'")
+}
+
+/**
+ * Staging is excluded so visual editing always renders live content, and
+ * because its cache would otherwise survive a production-triggered purge.
+ */
+const isCacheable = (request: Request, isProduction: boolean): boolean => {
+  if (!isProduction || request.method !== "GET") return false
+
+  const { pathname } = new URL(request.url)
+  return !UNCACHEABLE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+export const onRequest = defineMiddleware(async (context, next) => {
+  const isProduction = context.locals.runtime?.env.ENVIRONMENT === "production"
+  const cacheable = isCacheable(context.request, isProduction)
+  const cache = caches.default
+
+  if (cacheable) {
+    const hit = await cache.match(context.request)
+    if (hit) {
+      // Rebuilt rather than returned directly: a cached Response is immutable.
+      const response = new Response(hit.body, hit)
+      applySecurityHeaders(response, isProduction)
+      response.headers.set("X-Edge-Cache", "HIT")
+      return response
+    }
+  }
+
+  const response = await next()
+  applySecurityHeaders(response, isProduction)
+
+  // Only 200s, and only when the page asked to be cached via setPageCacheHeaders.
+  if (
+    cacheable &&
+    response.status === 200 &&
+    response.headers.get("Cache-Control")?.includes("s-maxage")
+  ) {
+    response.headers.set("X-Edge-Cache", "MISS")
+
+    const toStore = response.clone()
+    context.locals.runtime?.ctx.waitUntil(
+      // put() rejects responses it considers private (Set-Cookie, no-store).
+      // A failed write just means the next request re-renders.
+      cache.put(context.request, toStore).catch((err) => {
+        const message = err instanceof Error ? err.message : "Unknown error"
+        console.error("[middleware] cache.put failed:", message)
+      })
+    )
+  }
 
   return response
 })

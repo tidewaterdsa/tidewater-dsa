@@ -314,13 +314,18 @@ re-filter against `now` in memory, so widening the window is safe. The result is
 a handful of stable keys and roughly one Google call per key per minute
 regardless of traffic.
 
-**Page headers (browser).** `/events` and the homepage send
-`Cache-Control: public, max-age=60, stale-while-revalidate=600`. Pages that
-don't render events (`/resources`, `/chapter-priorities`) stay at `max-age=300`.
+**Page headers (browser and edge).** Pages call `setPageCacheHeaders` from
+`src/lib/cache-headers.ts`, which sends
+`Cache-Control: public, max-age=0, must-revalidate, s-maxage=<ttl>`. Browsers
+revalidate on every load; the edge cache in `middleware.ts` reads `s-maxage` for
+its TTL. Pages that render Google data (`/`, `/events`, `/resources`) use a
+300-second TTL, because a Sanity publish purges the edge but a calendar or sheet
+edit doesn't. Sanity-only pages use an hour.
 
-Worst-case staleness for a new calendar event is therefore about 60 seconds. If
-you need faster propagation for a specific update, edit the customization in
-Studio and wait one minute.
+Worst-case staleness for a new calendar event is therefore about six minutes: a
+60-second KV entry baked into a page that then sits at the edge for 300 seconds.
+Sanity edits aren't subject to this — publishing purges the edge immediately
+(see [Cache purging on publish](#cache-purging-on-publish)).
 
 ## Action Network
 
@@ -505,6 +510,39 @@ binding name that throws a `TypeError` and every 404 becomes a 500.
 served by the `ASSETS` binding before the Worker runs, so it covers pages and API
 routes only.
 
+### Edge caching
+
+The middleware caches rendered pages in the Worker's own Cache API
+(`caches.default`) and serves hits without touching Sanity.
+
+**This cannot be done with Cloudflare Cache Rules.** Workers run _before_ the
+cache, so a response Astro renders inside the Worker never passes through the
+CDN cache — Cache Rules, Page Rules and the zone's cached-file-extension list
+all have no effect on it. For a project that is entirely on Workers, the Cache
+API is the only option. Don't add a Cache Rule for these routes expecting it to
+help; a rule that sets a fixed Browser TTL can actively overwrite the
+`Cache-Control` the pages depend on.
+
+What gets cached:
+
+| Condition   | Rule                                                                |
+| ----------- | ------------------------------------------------------------------- |
+| Environment | Production only — staging stays live for visual editing             |
+| Method      | `GET` only                                                          |
+| Path        | Not `/admin` (per-editor state) or `/api` (incl. the purge webhook) |
+| Status      | `200`, and the page must have set `s-maxage`                        |
+
+Writes go through `ctx.waitUntil`, so caching never delays the response, and a
+failed `cache.put` just means the next request re-renders.
+
+Responses carry `X-Edge-Cache: HIT` or `MISS` for debugging. Note that
+`cf-cache-status` will never appear on these routes, and that `curl -I` sends
+`HEAD`, which is deliberately not cached — use a real GET when checking:
+
+```bash
+curl -s -o /dev/null -D - https://tidewaterdsa.org/ | grep -i x-edge-cache
+```
+
 ### Search engine indexing
 
 Any deployment whose `ENVIRONMENT` runtime variable is not exactly `production`
@@ -589,6 +627,8 @@ variables](#build-time-vs-runtime-variables)).
 - `GOOGLE_CALENDAR_ID`, `GOOGLE_CALENDAR_API_KEY`
 - `GOOGLE_SHEETS_API_KEY`
 - `MAPBOX_GEOCODER_TOKEN`
+- `SANITY_REVALIDATE_SECRET`, `CF_ZONE_ID`, `CF_PURGE_TOKEN` — production only,
+  see [Cache purging on publish](#cache-purging-on-publish)
 
 `ENVIRONMENT` and `PUBLIC_SANITY_VISUAL_EDITING_ENABLED` live in
 `wrangler.jsonc` rather than the dashboard. **Don't add plain-text runtime
@@ -611,6 +651,55 @@ would be compiled in immediately.
 
 Visual editing should stay disabled in production. It fetches draft content, adds
 overhead, and pulls the token into the bundle.
+
+### Cache purging on publish
+
+Publishing in Studio fires a Sanity webhook at `POST /api/revalidate`, which
+purges the Cloudflare cache so the change is live immediately instead of waiting
+out the edge TTL. Without this, the edge TTLs in `cache-headers.ts` would have to
+be short enough to be useless.
+
+One-time setup:
+
+1. **Zone ID** — Cloudflare dashboard → Account Home → Domains →
+   `tidewaterdsa.org` → Overview → right rail, under **API**. (It is on the
+   domain, not the Worker.)
+2. **Purge token** — My Profile → API Tokens → Create Token → Custom token.
+   Permissions: `Zone` → `Cache Purge` → `Purge`, scoped to this zone only.
+   That is the only permission it needs.
+3. **Secrets** — set `CF_ZONE_ID`, `CF_PURGE_TOKEN`, and a
+   `SANITY_REVALIDATE_SECRET` of your own (`openssl rand -hex 32`) on the
+   production Worker.
+4. **Webhook** — `sanity.io/manage` → project → API → Webhooks → Create.
+   URL `https://tidewaterdsa.org/api/revalidate`, dataset `production`, method
+   `POST`, triggering on create/update/delete. Add an HTTP header
+   `x-revalidate-secret` matching the secret.
+
+**The webhook filter is not optional.** Set it to:
+
+```
+!(_id in path("drafts.**"))
+```
+
+Sanity autosaves drafts continuously, so without this the webhook fires every few
+seconds while someone types in Studio and purges the cache each time. With it,
+purges only happen on real publishes — a handful a day, well inside Cloudflare's
+per-zone daily purge limit.
+
+The endpoint purges the whole zone rather than a URL list: a document can surface
+on the home page, its own slug and a listing at once, so mapping documents to
+affected URLs is guesswork. Assets are hashed and re-served from the `ASSETS`
+binding, so a full purge costs a few cheap re-renders. It returns a non-2xx on
+failure so Sanity retries rather than silently leaving the cache stale.
+
+To confirm the zone ID and token work together:
+
+```bash
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/<ZONE_ID>/purge_cache" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  --data '{"purge_everything":true}'
+```
 
 ### KV namespace bindings
 
