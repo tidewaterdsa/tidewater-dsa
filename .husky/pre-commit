@@ -18,3 +18,6 @@ fi
 
 echo "Running monorepo linter..."
 CI=true npm run lint
+
+echo "Running type checker..."
+CI=true npm run typecheck

@@ -1,5 +1,5 @@
 import { defineField } from "sanity"
-import type { FieldDefinition, Rule } from "sanity"
+import type { ArrayDefinition, FieldDefinition, Rule } from "sanity"
 import { LinkInput } from "../components/link/LinkInput"
 
 interface RichTextBodyOptions {
@@ -9,6 +9,7 @@ interface RichTextBodyOptions {
   group?: string
   allowImages?: boolean
   allowQuotes?: boolean
+  validation?: ArrayDefinition["validation"]
 }
 
 /**
@@ -25,6 +26,7 @@ export const defineRichTextBody = ({
   group,
   allowImages = true,
   allowQuotes = false,
+  validation,
 }: RichTextBodyOptions = {}): FieldDefinition<"array"> => {
   const blockType = {
     type: "block" as const,
@@ -139,6 +141,7 @@ export const defineRichTextBody = ({
     type: "array",
     description,
     ...(group ? { group } : {}),
+    ...(validation ? { validation } : {}),
     of: members,
   })
 }
