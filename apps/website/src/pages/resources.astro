@@ -19,7 +19,7 @@ import "@/styles/print-resources.css"
 import { stegaClean } from "@sanity/client/stega"
 import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-setPageCacheHeaders(Astro.response.headers, { edgeMaxAge: 300 })
+setPageCacheHeaders(Astro.response.headers)
 
 const { data } = await loadQuery<RESOURCES_PAGE_QUERY_RESULT>({
   query: RESOURCES_PAGE_QUERY,

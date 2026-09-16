@@ -316,11 +316,14 @@ regardless of traffic.
 
 **Page headers (browser and edge).** Pages call `setPageCacheHeaders` from
 `src/lib/cache-headers.ts`, which sends
-`Cache-Control: public, max-age=0, must-revalidate, s-maxage=<ttl>`. Browsers
+`Cache-Control: public, max-age=0, must-revalidate, s-maxage=300`. Browsers
 revalidate on every load; the edge cache in `middleware.ts` reads `s-maxage` for
-its TTL. Pages that render Google data (`/`, `/events`, `/resources`) use a
-300-second TTL, because a Sanity publish purges the edge but a calendar or sheet
-edit doesn't. Sanity-only pages use an hour.
+its TTL.
+
+The TTL is the same on every page rather than longer on Sanity-only ones,
+because `main.astro` renders the next-meeting ribbon from Google Calendar on
+_every_ page. A Sanity publish purges the edge; a calendar edit doesn't, so no
+page can outlive its calendar data by much.
 
 Worst-case staleness for a new calendar event is therefore about six minutes: a
 60-second KV entry baked into a page that then sits at the edge for 300 seconds.
@@ -543,10 +546,20 @@ declined. Miniflare is more permissive than the real runtime, so this passes
 locally and fails once deployed — `X-Edge-Cache: MISS` on every single request
 is the symptom.
 
-Sanity queries run with `useCdn: false` (`src/lib/load-query.ts`) for the same
-reason the TTLs can be long: after a purge, a re-render that raced Sanity's own
-CDN would re-cache stale content for the full TTL. The edge cache means misses
-are rare, so the uncached queries cost little.
+Sanity queries run through Sanity's CDN in production (`useCdn:
+!visualEditingEnabled` in `src/lib/load-query.ts`). Because `caches.default` is
+per-colo, edge misses are frequent enough that uncached queries would add up
+against the project's API quota. Sanity purges its own CDN on publish, so a
+re-render triggered by our purge can only race it for about a second.
+
+It is always off when visual editing is on: draft content is fetched with a
+token, and the CDN cannot serve authenticated responses.
+
+**`caches.default` is per-colo.** Each Cloudflare data center keeps its own
+copy, so an occasional `MISS` among `HIT`s is normal — that request landed
+somewhere that hadn't cached the page yet, not a broken cache. Don't read a
+single `MISS` as a failure; check the `Age` header on the `HIT`s instead, which
+shows how long the stored entry has been held.
 
 Responses carry `X-Edge-Cache: HIT` or `MISS` for debugging. Note that
 `cf-cache-status` will never appear on these routes, and that `curl -I` sends
@@ -597,11 +610,11 @@ Workers are connected to this repo through Cloudflare Workers Builds:
 Both Workers build from **this app's directory**, not the repo root, so wrangler
 discovers `./wrangler.jsonc` on its own and no `--config` flag is needed:
 
-|                  | `tidewater-dsa`       | `tidewater-dsa-staging`             |
-| ---------------- | --------------------- | ----------------------------------- |
-| Root directory   | `apps/website`        | `apps/website`                      |
-| Build command    | `npm run build`       | `npm run build`                     |
-| Deploy command   | `npx wrangler deploy` | `npx wrangler deploy --env staging` |
+|                | `tidewater-dsa`       | `tidewater-dsa-staging`             |
+| -------------- | --------------------- | ----------------------------------- |
+| Root directory | `apps/website`        | `apps/website`                      |
+| Build command  | `npm run build`       | `npm run build`                     |
+| Deploy command | `npx wrangler deploy` | `npx wrangler deploy --env staging` |
 
 The two differ by exactly one flag. Anything else that drifts apart between them
 is a bug.

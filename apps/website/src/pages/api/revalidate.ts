@@ -27,8 +27,15 @@ interface RevalidateResponse {
 const json = (body: RevalidateResponse, status: number): Response =>
   new Response(JSON.stringify(body), { status, headers: JSON_HEADERS })
 
-/** Length-independent compare so a wrong secret can't be recovered by timing. */
-const secretsMatch = (a: string, b: string): boolean => {
+/**
+ * Length-independent compare so a wrong secret can't be recovered by timing.
+ * Both sides are trimmed: `wrangler secret put` keeps a trailing newline when
+ * its input is piped, which is invisible in the dashboard and fails every compare.
+ */
+const secretsMatch = (rawA: string, rawB: string): boolean => {
+  const a = rawA.trim()
+  const b = rawB.trim()
+
   if (a.length !== b.length) return false
 
   let diff = 0
@@ -68,9 +75,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Revalidation is not configured." }, 503)
   }
 
+  // Split so the webhook delivery log distinguishes a misconfigured Sanity
+  // webhook (secret in the wrong field, so no header at all) from a genuine
+  // mismatch. The header name isn't secret — it's in the README.
   const provided = request.headers.get(SECRET_HEADER)
-  if (!provided || !secretsMatch(provided, secret)) {
-    return json({ error: "Unauthorized." }, 401)
+  if (!provided) {
+    return json({ error: `Missing ${SECRET_HEADER} header.` }, 401)
+  }
+
+  if (!secretsMatch(provided, secret)) {
+    return json({ error: "Secret mismatch." }, 401)
   }
 
   try {

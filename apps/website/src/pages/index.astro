@@ -19,7 +19,7 @@ import RichText from "@/components/rich-text/RichText.astro"
 import { stegaClean } from "@sanity/client/stega"
 import { setPageCacheHeaders } from "@/lib/cache-headers"
 
-setPageCacheHeaders(Astro.response.headers, { edgeMaxAge: 300 })
+setPageCacheHeaders(Astro.response.headers)
 
 const [{ data: home }, { data: eventTypesData }] = await Promise.all([
   loadQuery<HOME_PAGE_QUERY_RESULT>({ query: HOME_PAGE_QUERY }),
