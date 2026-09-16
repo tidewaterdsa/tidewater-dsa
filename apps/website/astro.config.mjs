@@ -14,11 +14,18 @@ const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET } = loadEnv(
 export default defineConfig({
   adapter: cloudflare(),
   output: "server",
+  security: {
+    // Astro rejects cross-origin POSTs by default, which blocks the Sanity
+    // publish webhook to /api/revalidate — it arrives with no matching Origin.
+    // Nothing here is cookie-authenticated, and that route checks a shared
+    // secret header, which a cross-site form POST cannot set.
+    checkOrigin: false,
+  },
   vite: {
     plugins: [tailwindcss()],
     resolve: {
-      // React 19 + Cloudflare Workers: Vite resolves react-dom/server to the browser build, 
-      // which calls MessageChannel at init. Workers don't have MessageChannel. 
+      // React 19 + Cloudflare Workers: Vite resolves react-dom/server to the browser build,
+      // which calls MessageChannel at init. Workers don't have MessageChannel.
       // Force the edge build, which is designed for this runtime.
       alias: import.meta.env.PROD
         ? { "react-dom/server": "react-dom/server.edge" }

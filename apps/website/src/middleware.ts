@@ -39,6 +39,18 @@ const applySecurityHeaders = (response: Response, isProduction: boolean) => {
 }
 
 /**
+ * What the browser sees on hits and misses alike: revalidate every load.
+ * The stored copy gets a real TTL instead — see the note in onRequest.
+ */
+const BROWSER_CACHE_CONTROL = "public, max-age=0, must-revalidate"
+
+/** The edge TTL a page asked for via setPageCacheHeaders, if any. */
+const edgeTtlFrom = (response: Response): number | null => {
+  const match = response.headers.get("Cache-Control")?.match(/s-maxage=(\d+)/)
+  return match ? Number(match[1]) : null
+}
+
+/**
  * Staging is excluded so visual editing always renders live content, and
  * because its cache would otherwise survive a production-triggered purge.
  */
@@ -60,6 +72,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       // Rebuilt rather than returned directly: a cached Response is immutable.
       const response = new Response(hit.body, hit)
       applySecurityHeaders(response, isProduction)
+      response.headers.set("Cache-Control", BROWSER_CACHE_CONTROL)
       response.headers.set("X-Edge-Cache", "HIT")
       return response
     }
@@ -69,17 +82,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
   applySecurityHeaders(response, isProduction)
 
   // Only 200s, and only when the page asked to be cached via setPageCacheHeaders.
-  if (
-    cacheable &&
-    response.status === 200 &&
-    response.headers.get("Cache-Control")?.includes("s-maxage")
-  ) {
+  const ttl =
+    cacheable && response.status === 200 ? edgeTtlFrom(response) : null
+
+  if (ttl !== null) {
     response.headers.set("X-Edge-Cache", "MISS")
 
-    const toStore = response.clone()
+    /**
+     * The stored copy carries a plain `max-age`, not the `max-age=0,
+     * must-revalidate` the browser gets: the Cache API reads Cache-Control as
+     * an instruction to itself and silently declines to store a response that
+     * says not to cache. Miniflare is more permissive, so this only shows up
+     * once deployed — a MISS on every request is the symptom.
+     */
+    const toStore = new Response(response.clone().body, response)
+    toStore.headers.set("Cache-Control", `public, max-age=${ttl}`)
+
     context.locals.runtime?.ctx.waitUntil(
-      // put() rejects responses it considers private (Set-Cookie, no-store).
-      // A failed write just means the next request re-renders.
       cache.put(context.request, toStore).catch((err) => {
         const message = err instanceof Error ? err.message : "Unknown error"
         console.error("[middleware] cache.put failed:", message)

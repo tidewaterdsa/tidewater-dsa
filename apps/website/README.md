@@ -535,6 +535,19 @@ What gets cached:
 Writes go through `ctx.waitUntil`, so caching never delays the response, and a
 failed `cache.put` just means the next request re-renders.
 
+**The stored copy and the returned copy carry different `Cache-Control`.** The
+browser gets `max-age=0, must-revalidate`; the stored copy is rewritten to a
+plain `public, max-age=<ttl>`. The Cache API reads `Cache-Control` as an
+instruction to _itself_, so a response telling it not to cache is silently
+declined. Miniflare is more permissive than the real runtime, so this passes
+locally and fails once deployed — `X-Edge-Cache: MISS` on every single request
+is the symptom.
+
+Sanity queries run with `useCdn: false` (`src/lib/load-query.ts`) for the same
+reason the TTLs can be long: after a purge, a re-render that raced Sanity's own
+CDN would re-cache stale content for the full TTL. The edge cache means misses
+are rare, so the uncached queries cost little.
+
 Responses carry `X-Edge-Cache: HIT` or `MISS` for debugging. Note that
 `cf-cache-status` will never appear on these routes, and that `curl -I` sends
 `HEAD`, which is deliberately not cached — use a real GET when checking:
@@ -581,19 +594,37 @@ Workers are connected to this repo through Cloudflare Workers Builds:
 | `tidewater-dsa`         | `main`    | `production` | off            | off       |
 | `tidewater-dsa-staging` | `staging` | `staging`    | on             | off       |
 
-Each Worker builds from the **repo root** — npm workspaces resolve
-`@tidewater-dsa/ui` from there — with a `--config` flag reaching into this app:
+Both Workers build from **this app's directory**, not the repo root, so wrangler
+discovers `./wrangler.jsonc` on its own and no `--config` flag is needed:
 
-- Root directory: `/`
-- Build command: `npm ci && npm run build`
-- Deploy command: `npx wrangler deploy --config apps/website/wrangler.jsonc --env=""`
-  (staging uses `--env staging`)
+|                  | `tidewater-dsa`       | `tidewater-dsa-staging`             |
+| ---------------- | --------------------- | ----------------------------------- |
+| Root directory   | `apps/website`        | `apps/website`                      |
+| Build command    | `npm run build`       | `npm run build`                     |
+| Deploy command   | `npx wrangler deploy` | `npx wrangler deploy --env staging` |
 
-Two things that will bite:
+The two differ by exactly one flag. Anything else that drifts apart between them
+is a bug.
+
+Dependencies are installed by Cloudflare before the build command runs, from the
+repo root, because that is where `package-lock.json` lives — which is what lets
+`@tidewater-dsa/ui` resolve even though the build itself runs one directory down.
+That package ships raw source with no build step of its own, so the root
+`turbo build` is not needed here; `npm run build` in this directory resolves to
+`astro build`.
+
+Three things that will bite:
+
+- **`--config` and the root directory have to agree.** A path like
+  `--config apps/website/wrangler.jsonc` is resolved relative to the root
+  directory, so with the root already set to `apps/website` it doubles into
+  `apps/website/apps/website/wrangler.jsonc` and the deploy fails with `ENOENT`.
+  Leave the flag off.
 
 - **The Worker name in the dashboard must match `name` in `wrangler.jsonc`.**
   The deploy command targets the name in config, not the Worker the build is
   attached to; a mismatch silently creates a second Worker.
+
 - **Each Worker sets its own production branch** (Settings → Build → Branch
   control). For the staging Worker that branch is `staging`. Pushes to a
   non-production branch run `wrangler versions upload` instead of deploying, so
@@ -658,6 +689,13 @@ Publishing in Studio fires a Sanity webhook at `POST /api/revalidate`, which
 purges the Cloudflare cache so the change is live immediately instead of waiting
 out the edge TTL. Without this, the edge TTLs in `cache-headers.ts` would have to
 be short enough to be useless.
+
+`astro.config.mjs` sets `security.checkOrigin: false` for this. Astro rejects
+cross-origin POSTs by default with `403 Cross-site POST form submissions are
+forbidden`, and the webhook arrives with no matching `Origin` — so the route is
+unreachable with the check on, and purges silently never run. Nothing on this
+site is cookie-authenticated, and the route requires a secret header that a
+cross-site form POST cannot set, so the check was protecting nothing here.
 
 One-time setup:
 

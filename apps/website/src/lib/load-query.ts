@@ -29,7 +29,10 @@ export async function loadQuery<QueryResponse>({
       perspective,
       resultSourceMap: visualEditingEnabled ? "withKeyArraySelector" : false,
       stega: visualEditingEnabled,
-      useCdn: !visualEditingEnabled,
+      // Uncached: publishing purges the edge, and a re-render that raced
+      // Sanity's own CDN could re-cache stale content for the full TTL.
+      // The edge cache means misses are rare, so this costs few API calls.
+      useCdn: false,
       ...(visualEditingEnabled ? { token } : {}),
     }
   )
